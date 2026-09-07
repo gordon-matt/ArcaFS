@@ -283,7 +283,7 @@ public sealed partial class FileSystemService
         var principal = await permissionService.GetCurrentPrincipalAsync(cancellationToken);
         var evaluate = await permissionService.GetChildPermissionEvaluatorAsync(
             root.Source.Id,
-            root.ScopedVirtualPath,
+            root.AbsoluteVirtualPath,
             principal,
             cancellationToken);
 
@@ -312,9 +312,11 @@ public sealed partial class FileSystemService
             string relative = Path.GetRelativePath(root.PhysicalPath, file.FullName)
                 .Replace(Path.DirectorySeparatorChar, Constants.PathSeparator);
 
-            string childVirtual = VirtualPath.Combine(root.ScopedVirtualPath, relative.Split(Constants.PathSeparator));
+            string childAbsolute = VirtualPath.Combine(
+                root.AbsoluteVirtualPath,
+                relative.Split(Constants.PathSeparator));
 
-            if (!evaluate(childVirtual).Has(FilePermission.Read))
+            if (!evaluate(childAbsolute).Has(FilePermission.Read))
             {
                 continue;
             }

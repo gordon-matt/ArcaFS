@@ -44,6 +44,8 @@ public interface IPermissionService
     /// <summary>
     /// Bulk resolution for a directory listing. Far cheaper than one <see cref="RequireAsync"/>
     /// per child because the source's rules are loaded and pre-filtered once.
+    /// <paramref name="directoryVirtualPath"/> is the absolute (source) path of the directory,
+    /// including any user-scope prefix; the returned function expects absolute child paths too.
     /// </summary>
     Task<Func<string, FilePermission>> GetChildPermissionEvaluatorAsync(
         int sourceId,

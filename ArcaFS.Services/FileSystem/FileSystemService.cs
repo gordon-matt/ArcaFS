@@ -61,7 +61,7 @@ public sealed partial class FileSystemService(
         // this subtree once instead of per child.
         var evaluate = await permissionService.GetChildPermissionEvaluatorAsync(
             request.SourceId,
-            target.ScopedVirtualPath,
+            target.AbsoluteVirtualPath,
             principal,
             cancellationToken);
 
@@ -82,17 +82,18 @@ public sealed partial class FileSystemService(
                     continue;
                 }
 
-                string childPath = VirtualPath.Combine(target.ScopedVirtualPath, entry.Name);
+                string scopedChild = VirtualPath.Combine(target.ScopedVirtualPath, entry.Name);
+                string absoluteChild = VirtualPath.Combine(target.AbsoluteVirtualPath, entry.Name);
 
                 // A child the caller can neither browse nor read is omitted entirely rather than
                 // shown-but-locked: leaking the names of files you can't open is itself a leak.
-                var childPermissions = evaluate(childPath);
+                var childPermissions = evaluate(absoluteChild);
                 if (!childPermissions.HasAny(FilePermission.Browse | FilePermission.Read))
                 {
                     continue;
                 }
 
-                var item = ToItem(entry, childPath, childPermissions);
+                var item = ToItem(entry, scopedChild, childPermissions);
                 items.Add(item);
                 totalSize += item.SizeBytes;
             }

@@ -310,6 +310,7 @@
 
     private ElementReference listingElement;
     private DotNetObjectReference<Files>? dotNetRef;
+    private bool jsHandlersRegistered;
     private string InteropKey => $"files-{SourceId}";
 
     private ConfirmDialog? confirmDialog;
@@ -385,6 +386,7 @@
         await JS.InvokeVoidAsync("arcafs.registerFileKeys", InteropKey, dotNetRef);
         await JS.InvokeVoidAsync(
             "arcafsUploader.registerDropZone", InteropKey, listingElement, dotNetRef);
+        jsHandlersRegistered = true;
     }
 
     private async Task LoadAsync()
@@ -1237,15 +1239,24 @@
     {
         try
         {
-            await JS.InvokeVoidAsync("arcafs.unregisterFileKeys", InteropKey);
-            await JS.InvokeVoidAsync("arcafsUploader.unregisterDropZone", InteropKey);
+            // Prerender constructs and disposes this component with no circuit. Calling JS then
+            // throws; only unregister handlers that an interactive render actually installed.
+            if (jsHandlersRegistered)
+            {
+                await JS.InvokeVoidAsync("arcafs.unregisterFileKeys", InteropKey);
+                await JS.InvokeVoidAsync("arcafsUploader.unregisterDropZone", InteropKey);
+            }
         }
-        catch (JSDisconnectedException)
+        catch (Exception ex) when (
+            ex is JSDisconnectedException
+            or InvalidOperationException
+            or ObjectDisposedException)
         {
-            // The circuit is already gone, so the handlers went with the page.
+            // Prerender has no circuit; an interactive circuit may already have gone away.
         }
 
         dotNetRef?.Dispose();
+        dotNetRef = null;
     }
 
     private sealed record Clipboard(int SourceId, HashSet<string> Paths, bool IsCut);

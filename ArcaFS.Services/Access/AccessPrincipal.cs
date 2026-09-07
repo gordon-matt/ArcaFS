@@ -11,6 +11,18 @@ public sealed record AccessPrincipal
 
     public string? UserName { get; init; }
 
+    /// <summary>
+    /// Optional friendly name. When set, <c>${username}</c> in scopes and rules uses this so
+    /// home folders match the name people actually create on disk.
+    /// </summary>
+    public string? DisplayName { get; init; }
+
+    /// <summary>
+    /// Value substituted for <c>${username}</c>: display name when present, otherwise login name.
+    /// </summary>
+    public string? FolderName =>
+        !string.IsNullOrWhiteSpace(DisplayName) ? DisplayName : UserName;
+
     public bool IsAuthenticated { get; init; }
 
     public bool IsAdministrator { get; init; }

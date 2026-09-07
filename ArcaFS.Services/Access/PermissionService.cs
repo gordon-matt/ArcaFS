@@ -56,7 +56,8 @@ public sealed class PermissionService(
         return currentPrincipal = new AccessPrincipal
         {
             UserId = userId,
-            UserName = userContext.GetCurrentUserName(),
+            UserName = user?.UserName ?? userContext.GetCurrentUserName(),
+            DisplayName = user?.DisplayName,
             IsAuthenticated = true,
             IsAdministrator = userContext.IsAdministrator(),
             RoleNames = userContext.GetRoleNames().ToHashSet(StringComparer.OrdinalIgnoreCase),
@@ -110,6 +111,8 @@ public sealed class PermissionService(
         }
 
         string scope = ResolveScope(source, principal);
+        EnsureUserHomeDirectory(source, scope);
+
         string scoped = VirtualPath.Normalize(virtualPath);
         string absolute = scope == Constants.RootPath
             ? scoped
@@ -295,14 +298,54 @@ public sealed class PermissionService(
 
         string expanded = VirtualPath.ExpandTokens(
             source.DefaultUserScope,
-            principal.UserName,
+            principal.FolderName,
             principal.UserId);
 
         // An anonymous visitor has no name to substitute; falling back to the root would hand
         // them the whole source, so deny by giving them an unreachable scope instead.
-        return VirtualPath.HasTokens(expanded)
-            ? Constants.RootPath
-            : VirtualPath.Normalize(expanded);
+        if (VirtualPath.HasTokens(expanded))
+        {
+            return Constants.RootPath;
+        }
+
+        string normalized = VirtualPath.Normalize(expanded);
+
+        return UserHomePath.AlignScopeWithExistingDirectory(
+            source.Path,
+            normalized,
+            userName: principal.UserName,
+            displayName: principal.DisplayName);
+    }
+
+    /// <summary>
+    /// Creates the caller's home folder when the source is configured to do so. Without this,
+    /// the first visit to a per-user source is a 404 until someone makes the directory by hand.
+    /// </summary>
+    private void EnsureUserHomeDirectory(Source source, string scope)
+    {
+        if (!source.CreateUserDirectory || scope == Constants.RootPath)
+        {
+            return;
+        }
+
+        if (!VirtualPath.TryResolve(source.Path, scope, out string? homePhysical)
+            || Directory.Exists(homePhysical))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(homePhysical);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogWarning(
+                ex,
+                "Could not create home directory {Physical} for source {SourceId}",
+                homePhysical,
+                source.Id);
+        }
     }
 
     /// <summary>
@@ -335,6 +378,7 @@ public sealed class PermissionService(
         {
             UserId = userId,
             UserName = info?.UserName ?? localUser?.UserName,
+            DisplayName = info?.DisplayName ?? localUser?.DisplayName,
             IsAuthenticated = true,
             IsAdministrator = roles.Contains(Constants.Roles.Administrator),
             RoleNames = roles,

@@ -276,6 +276,35 @@ public class PermissionResolverTests
     }
 
     [Fact]
+    public void OwnerRule_UsesDisplayNameForHomeFolderWhenSet()
+    {
+        var source = NewSource(denyByDefault: true);
+        var rules = new[]
+        {
+            Rule(
+                AccessSubjectType.Owner,
+                null,
+                AccessEffect.Allow,
+                FilePermission.Editor,
+                path: "/" + Constants.PathTokens.UserName),
+        };
+
+        var principal = new AccessPrincipal
+        {
+            UserId = "admin-id",
+            UserName = "admin",
+            DisplayName = "Matt",
+            IsAuthenticated = true,
+        };
+
+        var atDisplayName = PermissionResolver.Resolve(source, rules, principal, "/Matt/notes.txt");
+        var atLoginName = PermissionResolver.Resolve(source, rules, principal, "/admin/notes.txt");
+
+        Assert.True(atDisplayName.Has(FilePermission.Create));
+        Assert.Equal(FilePermission.None, atLoginName.Effective);
+    }
+
+    [Fact]
     public void Scenario_OwnerRuleIsNotMatchedByAnAnonymousVisitor()
     {
         var source = NewSource(denyByDefault: true);

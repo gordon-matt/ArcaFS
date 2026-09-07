@@ -266,7 +266,7 @@ public static class PermissionResolver
     }
 
     private static string ExpandRulePath(AccessRule rule, AccessPrincipal principal) =>
-        VirtualPath.Normalize(VirtualPath.ExpandTokens(rule.Path, principal.UserName, principal.UserId));
+        VirtualPath.Normalize(VirtualPath.ExpandTokens(rule.Path, principal.FolderName, principal.UserId));
 
     private static FilePermission Clamp(
         FilePermission granted,
