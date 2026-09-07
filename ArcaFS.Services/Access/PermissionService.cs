@@ -16,12 +16,18 @@ public sealed class PermissionService(
     IRepository<Source> sourceRepository,
     IRepository<AccessRule> accessRuleRepository,
     IRepository<AccessGroupMember> groupMemberRepository,
-    ApplicationDbContextBase db) : IPermissionService
+    IDbContextFactory dbContextFactory) : IPermissionService
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
     /// <summary>Memoised for the lifetime of the scope — one principal per request.</summary>
     private AccessPrincipal? currentPrincipal;
+
+    /// <summary>Memoised so the sidebar and home page share one load instead of racing.</summary>
+    private IReadOnlyList<SourceSummaryDto>? accessibleSources;
+
+    private readonly SemaphoreSlim principalLock = new(1, 1);
+    private readonly SemaphoreSlim accessibleSourcesLock = new(1, 1);
 
     public async Task<AccessPrincipal> GetCurrentPrincipalAsync(CancellationToken cancellationToken = default)
     {
@@ -30,6 +36,25 @@ public sealed class PermissionService(
             return currentPrincipal;
         }
 
+        await principalLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (currentPrincipal is not null)
+            {
+                return currentPrincipal;
+            }
+
+            return await LoadCurrentPrincipalAsync(cancellationToken);
+        }
+        finally
+        {
+            principalLock.Release();
+        }
+    }
+
+    private async Task<AccessPrincipal> LoadCurrentPrincipalAsync(CancellationToken cancellationToken)
+    {
         string? userId = userContext.GetCurrentUserId();
         if (!userContext.IsAuthenticated() || string.IsNullOrEmpty(userId))
         {
@@ -45,8 +70,7 @@ public sealed class PermissionService(
         // The global share switch lives on the Identity row rather than in the ACL so it can be
         // revoked in one place; it becomes a ceiling the rules can't lift.
         var ceiling = FilePermission.Full;
-        var user = await db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        var user = await FindLocalUserAsync(userId, cancellationToken);
 
         if (user is not null && !user.CanCreateShares)
         {
@@ -245,44 +269,64 @@ public sealed class PermissionService(
     public async Task<IReadOnlyList<SourceSummaryDto>> GetAccessibleSourcesAsync(
         CancellationToken cancellationToken = default)
     {
-        var principal = await GetCurrentPrincipalAsync(cancellationToken);
-        var sources = await GetAllSourcesAsync(cancellationToken);
-        var result = new List<SourceSummaryDto>();
-
-        foreach (var source in sources.Where(s => !s.IsDisabled && s.IsVisibleInSidebar))
+        if (accessibleSources is not null)
         {
-            var rules = await GetRulesAsync(source.Id, cancellationToken);
-            string scope = ResolveScope(source, principal);
-            var effective = PermissionResolver.Resolve(source, rules, principal, scope).Effective;
-
-            // A deny-by-default source with per-user home directories grants nothing at the root
-            // yet must still appear, or the user has no way to reach their own folder.
-            bool visible = effective.HasAny(FilePermission.Browse)
-                || PermissionResolver.HasAnyBrowsableDescendant(source, rules, principal, scope);
-
-            if (!visible)
-            {
-                continue;
-            }
-
-            result.Add(new SourceSummaryDto(
-                source.Id,
-                source.Name,
-                source.Description,
-                effective,
-                source.IsReadOnly,
-                source.IndexedItemCount,
-                source.IndexedSizeBytes,
-                source.LastIndexedAt));
+            return accessibleSources;
         }
 
-        return result;
+        await accessibleSourcesLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            if (accessibleSources is not null)
+            {
+                return accessibleSources;
+            }
+
+            var principal = await GetCurrentPrincipalAsync(cancellationToken);
+            var sources = await GetAllSourcesAsync(cancellationToken);
+            var result = new List<SourceSummaryDto>();
+
+            foreach (var source in sources.Where(s => !s.IsDisabled && s.IsVisibleInSidebar))
+            {
+                var rules = await GetRulesAsync(source.Id, cancellationToken);
+                string scope = ResolveScope(source, principal);
+                var effective = PermissionResolver.Resolve(source, rules, principal, scope).Effective;
+
+                // A deny-by-default source with per-user home directories grants nothing at the root
+                // yet must still appear, or the user has no way to reach their own folder.
+                bool visible = effective.HasAny(FilePermission.Browse)
+                    || PermissionResolver.HasAnyBrowsableDescendant(source, rules, principal, scope);
+
+                if (!visible)
+                {
+                    continue;
+                }
+
+                result.Add(new SourceSummaryDto(
+                    source.Id,
+                    source.Name,
+                    source.Description,
+                    effective,
+                    source.IsReadOnly,
+                    source.IndexedItemCount,
+                    source.IndexedSizeBytes,
+                    source.LastIndexedAt));
+            }
+
+            return accessibleSources = result;
+        }
+        finally
+        {
+            accessibleSourcesLock.Release();
+        }
     }
 
     public void InvalidateSource(int sourceId)
     {
         cache.Remove(RulesCacheKey(sourceId));
         cache.Remove(SourcesCacheKey);
+        accessibleSources = null;
     }
 
     /// <summary>
@@ -368,8 +412,7 @@ public sealed class PermissionService(
             CancellationToken = cancellationToken,
         })).Select(m => m.AccessGroupId).ToHashSet();
 
-        var localUser = await db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        var localUser = await FindLocalUserAsync(userId, cancellationToken);
 
         var roles = info?.Roles.ToHashSet(StringComparer.OrdinalIgnoreCase)
             ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -403,9 +446,7 @@ public sealed class PermissionService(
 
         if (userIds.Count > 0)
         {
-            var users = await db.Users.AsNoTracking()
-                .Where(u => userIds.Contains(u.Id))
-                .ToListAsync(cancellationToken);
+            var users = await FindLocalUsersAsync(userIds, cancellationToken);
 
             foreach (var user in users)
             {
@@ -459,6 +500,28 @@ public sealed class PermissionService(
 
         cache.Set(key, (IReadOnlyList<AccessRule>)rules, CacheDuration);
         return rules;
+    }
+
+    /// <summary>
+    /// Identity rows are read through Extenso's factory so each call gets its own context.
+    /// The scoped <c>ApplicationDbContextBase</c> is shared across the Blazor circuit and
+    /// cannot run two queries at once — which is exactly what the home page and sidebar do.
+    /// </summary>
+    private async Task<ApplicationUser?> FindLocalUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        await using var context = (ApplicationDbContextBase)dbContextFactory.GetContext();
+        return await context.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+    }
+
+    private async Task<List<ApplicationUser>> FindLocalUsersAsync(
+        IReadOnlyCollection<string> userIds,
+        CancellationToken cancellationToken)
+    {
+        await using var context = (ApplicationDbContextBase)dbContextFactory.GetContext();
+        return await context.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToListAsync(cancellationToken);
     }
 
     private static string Describe(FilePermission missing) =>

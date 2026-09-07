@@ -12,10 +12,10 @@
     <link rel="stylesheet" href="ArcaFS.styles.css" />
     <link rel="stylesheet" href="css/site.css" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <HeadOutlet @rendermode="InteractiveServer" />
+    <HeadOutlet @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
 </head>
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes @rendermode="@(new InteractiveServerRenderMode(prerender: false))" />
     <script src="_framework/blazor.web.js"></script>
     <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="@Assets["js/arcafs.js"]"></script>

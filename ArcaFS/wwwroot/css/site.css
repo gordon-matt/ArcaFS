@@ -26,6 +26,7 @@ body:has(.arca-shell) {
 /* ---------------------------------------------------------------- shell */
 
 .arca-shell {
+    position: relative;
     display: flex;
     height: 100%;
     overflow: hidden;
@@ -47,6 +48,16 @@ body:has(.arca-shell) {
     flex: 1 1 auto;
     overflow: auto;
     padding: 1rem 1.25rem;
+}
+
+.arca-version {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.3rem;
+    line-height: 1;
+    z-index: 5;
+    pointer-events: none;
+    opacity: 0.75;
 }
 
 /* ------------------------------------------------------------- sidebar */

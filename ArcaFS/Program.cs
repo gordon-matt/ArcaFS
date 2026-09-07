@@ -2,6 +2,7 @@ using ArcaFS.Components;
 using ArcaFS.Infrastructure;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Sejil;
@@ -24,6 +25,12 @@ builder.Host.UseSejil(writeToProviders: true);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Synology (and many nginx) reverse proxies close idle HTTP requests at 60s. SignalR's
+// long-poll default is 90s, so when WebSockets are blocked the proxy returns an HTML
+// error page and the circuit dies. Finish the poll first; the client starts another.
+builder.Services.Configure<HttpConnectionDispatcherOptions>(options =>
+    options.LongPolling.PollTimeout = TimeSpan.FromSeconds(20));
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
@@ -79,11 +86,16 @@ else
 }
 
 // Behind a reverse proxy the scheme and client address arrive in headers. Applied before
-// HTTPS redirection so the redirect doesn't fire on an already-secure request.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// HTTPS redirection so the redirect doesn't fire on an already-secure request. The defaults
+// only trust loopback; a NAS or Docker proxy sits on another address, so those headers would
+// otherwise be ignored and Blazor's WebSocket would try ws:// behind an https:// URL.
+var forwardedHeaders = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-});
+};
+forwardedHeaders.KnownIPNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeaders);
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
