@@ -1,0 +1,22 @@
+**/.dockerignore
+**/.env
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/bin
+**/obj
+**/node_modules
+**/wwwroot/lib
+**/Properties/launchSettings.json
+**/secrets.dev.yaml
+**/values.dev.yaml
+LICENSE
+README.md
+
+# Desktop / Electron output is never wanted in the web container.
+ArcaFS.Desktop/bin
+ArcaFS.Desktop/obj
+ArcaFS.Desktop/ElectronNET

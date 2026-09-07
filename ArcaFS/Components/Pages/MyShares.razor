@@ -1,0 +1,13 @@
+@page "/shares"
+@attribute [Authorize]
+
+<PageTitle>My shares - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">My shares</h1>
+        <p class="text-body-secondary mb-0">Public links you have created.</p>
+    </div>
+</div>
+
+<ShareList ShowOwner="false" />

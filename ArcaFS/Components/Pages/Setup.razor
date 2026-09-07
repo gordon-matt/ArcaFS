@@ -1,0 +1,389 @@
+@page "/setup"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+
+@inject ISetupService SetupService
+@inject NavigationManager Navigation
+
+<PageTitle>Set up ArcaFS</PageTitle>
+
+@* Deliberately outside the app shell: there is nothing to browse yet, and the sidebar would
+   show empty sections that look broken. *@
+<div class="container py-5" style="max-width: 42rem;">
+    <div class="text-center mb-4">
+        <i class="bi bi-archive-fill display-4 text-primary"></i>
+        <h1 class="h3 mt-2">Welcome to ArcaFS</h1>
+        <p class="text-body-secondary">A few questions and you're done.</p>
+    </div>
+
+    @if (state is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (state.IsComplete)
+    {
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle me-2"></i>
+            Setup is already finished.
+            <a href="/" class="alert-link">Go to your files</a>.
+        </div>
+    }
+    else
+    {
+        <ol class="list-group list-group-numbered mb-4">
+            <li class="list-group-item d-flex align-items-center">
+                <span class="ms-2 flex-grow-1">Administrator account</span>
+                @if (state.HasAdministrator)
+                {
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                }
+            </li>
+            <li class="list-group-item d-flex align-items-center">
+                <span class="ms-2 flex-grow-1">First source</span>
+                @if (state.HasSource)
+                {
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                }
+            </li>
+        </ol>
+
+        @if (errorMessage is not null)
+        {
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-octagon me-2"></i>@errorMessage
+            </div>
+        }
+
+        @if (!state.HasAdministrator)
+        {
+            <div class="card mb-3">
+                <div class="card-header">Create the administrator</div>
+                <div class="card-body">
+                    <EditForm Model="adminModel" OnValidSubmit="CreateAdministratorAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label" for="setupUserName">Username</label>
+                            <InputText id="setupUserName" class="form-control"
+                                       @bind-Value="adminModel.UserName" autocomplete="username" />
+                            <ValidationMessage For="() => adminModel.UserName" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="setupEmail">Email</label>
+                            <InputText id="setupEmail" type="email" class="form-control"
+                                       @bind-Value="adminModel.Email" autocomplete="email" />
+                            <ValidationMessage For="() => adminModel.Email" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="setupPassword">Password</label>
+                            <InputText id="setupPassword" type="password" class="form-control"
+                                       @bind-Value="adminModel.Password" autocomplete="new-password" />
+                            <ValidationMessage For="() => adminModel.Password" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="setupConfirm">Confirm password</label>
+                            <InputText id="setupConfirm" type="password" class="form-control"
+                                       @bind-Value="adminModel.ConfirmPassword"
+                                       autocomplete="new-password" />
+                            <ValidationMessage For="() => adminModel.ConfirmPassword"
+                                               class="text-danger small" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@isBusy">
+                            @if (isBusy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Create account
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        }
+        else if (!state.HasSource)
+        {
+            <div class="card mb-3">
+                <div class="card-header">Add your first source</div>
+                <div class="card-body">
+                    <EditForm Model="sourceModel" OnValidSubmit="CreateSourceAsync">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label" for="setupSourceName">Name</label>
+                            <InputText id="setupSourceName" class="form-control"
+                                       @bind-Value="sourceModel.Name" />
+                            <ValidationMessage For="() => sourceModel.Name" class="text-danger small" />
+                            <div class="form-text">What users will see in the sidebar.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="setupSourcePath">Folder on this server</label>
+                            <div class="input-group">
+                                <InputText id="setupSourcePath" class="form-control font-monospace"
+                                           @bind-Value="sourceModel.Path" />
+                                <button type="button" class="btn btn-outline-secondary"
+                                        @onclick="() => BrowseAsync(null)">
+                                    <i class="bi bi-folder2-open"></i>
+                                </button>
+                            </div>
+                            <ValidationMessage For="() => sourceModel.Path" class="text-danger small" />
+                        </div>
+
+                        @if (hostListing is not null)
+                        {
+                            <div class="card mb-3">
+                                <div class="card-body p-2">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                disabled="@(hostListing.ParentPath is null)"
+                                                @onclick="() => BrowseAsync(hostListing.ParentPath)">
+                                            <i class="bi bi-arrow-up"></i>
+                                        </button>
+                                        <code class="small text-break">
+                                            @(hostListing.CurrentPath ?? "This server")
+                                        </code>
+                                        <button type="button" class="btn btn-sm btn-link ms-auto"
+                                                @onclick="() => hostListing = null">
+                                            Close
+                                        </button>
+                                    </div>
+
+                                    <div class="list-group list-group-flush"
+                                         style="max-height: 14rem; overflow-y: auto;">
+                                        @foreach (var directory in hostListing.CurrentPath is null
+                                            ? hostListing.Roots
+                                            : hostListing.Directories)
+                                        {
+                                            <div class="list-group-item d-flex align-items-center gap-2 py-1">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-link text-decoration-none flex-grow-1 text-start"
+                                                        @onclick="() => BrowseAsync(directory.FullPath)">
+                                                    <i class="bi bi-folder-fill text-warning me-1"></i>
+                                                    @directory.Name
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick="() => ChoosePath(directory.FullPath)">
+                                                    Use
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="form-check mb-2">
+                            <InputCheckbox id="setupPerUser" class="form-check-input"
+                                           @bind-Value="sourceModel.UsePerUserDirectories" />
+                            <label class="form-check-label" for="setupPerUser">
+                                Give each user their own folder
+                            </label>
+                            <div class="form-text">
+                                @* This is the scope template plus an Owner rule; explaining it
+                                   here saves the admin a trip to the access-rules page. *@
+                                Each user sees only a folder named after them, with full control
+                                of it and no visibility into anyone else's.
+                            </div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <InputCheckbox id="setupReadOnly" class="form-check-input"
+                                           @bind-Value="sourceModel.IsReadOnly" />
+                            <label class="form-check-label" for="setupReadOnly">
+                                Read-only
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@isBusy">
+                            @if (isBusy)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Add source
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle display-5 text-success"></i>
+                    <h2 class="h5 mt-2">All set</h2>
+                    <p class="text-body-secondary">
+                        You can add more sources and configure access rules from the
+                        administration pages.
+                    </p>
+                    <button type="button" class="btn btn-primary" disabled="@isBusy"
+                            @onclick="CompleteAsync">
+                        Start using ArcaFS
+                    </button>
+                </div>
+            </div>
+        }
+
+        <p class="small text-body-secondary text-center mt-4">
+            Authentication: @state.AuthProviderName · Database: @state.DatabaseProviderName
+        </p>
+    }
+</div>
+
+@code {
+    private SetupStateDto? state;
+    private bool isBusy;
+    private string? errorMessage;
+    private HostDirectoryListingDto? hostListing;
+
+    private readonly AdminModel adminModel = new();
+    private readonly SourceModel sourceModel = new();
+
+    protected override async Task OnInitializedAsync() => await RefreshStateAsync();
+
+    private async Task RefreshStateAsync()
+    {
+        state = await SetupService.GetStateAsync();
+    }
+
+    private async Task CreateAdministratorAsync()
+    {
+        isBusy = true;
+        errorMessage = null;
+
+        var result = await SetupService.CreateAdministratorAsync(new SetupAdminRequest
+        {
+            UserName = adminModel.UserName,
+            Email = adminModel.Email,
+            Password = adminModel.Password,
+        });
+
+        isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            errorMessage = Describe(result, "The account could not be created.");
+            return;
+        }
+
+        // A full reload, so the new sign-in cookie and the authentication state are picked up
+        // rather than the circuit continuing as an anonymous visitor.
+        Navigation.NavigateTo("/setup", forceLoad: true);
+    }
+
+    private async Task CreateSourceAsync()
+    {
+        isBusy = true;
+        errorMessage = null;
+
+        var result = await SetupService.CreateFirstSourceAsync(new SetupSourceRequest
+        {
+            Name = sourceModel.Name,
+            Path = sourceModel.Path,
+            UsePerUserDirectories = sourceModel.UsePerUserDirectories,
+            IsReadOnly = sourceModel.IsReadOnly,
+        });
+
+        isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            errorMessage = Describe(result, "The source could not be created.");
+            return;
+        }
+
+        hostListing = null;
+        await RefreshStateAsync();
+    }
+
+    private async Task CompleteAsync()
+    {
+        isBusy = true;
+
+        var result = await SetupService.CompleteAsync();
+
+        isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            errorMessage = Describe(result, "Setup could not be completed.");
+            return;
+        }
+
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+
+    private async Task BrowseAsync(string? path)
+    {
+        var result = await SetupService.BrowseHostDirectoriesAsync(path);
+
+        if (result.IsSuccess)
+        {
+            hostListing = result.Value;
+            errorMessage = null;
+        }
+        else
+        {
+            errorMessage = Describe(result, "That folder could not be listed.");
+        }
+    }
+
+    private void ChoosePath(string path)
+    {
+        sourceModel.Path = path;
+
+        if (string.IsNullOrWhiteSpace(sourceModel.Name))
+        {
+            // A sensible default beats an empty required field; the admin can still change it.
+            sourceModel.Name = new DirectoryInfo(path).Name is { Length: > 0 } name ? name : "Files";
+        }
+
+        hostListing = null;
+    }
+
+    private static string Describe(Ardalis.Result.IResult result, string fallback) =>
+        result.Status switch
+        {
+            ResultStatus.Invalid => string.Join(
+                " ", result.ValidationErrors.Select(e => e.ErrorMessage)),
+            ResultStatus.Forbidden => "Setup has already been completed.",
+            _ => result.Errors.FirstOrDefault() ?? fallback,
+        };
+
+    private sealed class AdminModel
+    {
+        [Required(ErrorMessage = "Enter a username.")]
+        [StringLength(64, MinimumLength = 2)]
+        public string UserName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Enter an email address.")]
+        [EmailAddress(ErrorMessage = "That doesn't look like an email address.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Enter a password.")]
+        [StringLength(128, MinimumLength = 6,
+            ErrorMessage = "Use at least 6 characters.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Compare(nameof(Password), ErrorMessage = "The passwords don't match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    private sealed class SourceModel
+    {
+        [Required(ErrorMessage = "Enter a name.")]
+        [StringLength(128)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Choose a folder.")]
+        public string Path { get; set; } = string.Empty;
+
+        public bool UsePerUserDirectories { get; set; }
+
+        public bool IsReadOnly { get; set; }
+    }
+}

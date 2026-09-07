@@ -1,0 +1,286 @@
+@page "/admin/groups"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject IAccessGroupService AccessGroupService
+@inject IUserInfoService UserInfoService
+@inject ToastService Toasts
+
+<PageTitle>Groups - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Groups</h1>
+        <p class="text-body-secondary mb-0">
+            Named sets of users that access rules can target. Keycloak groups are synced on sign-in
+            and marked as externally managed.
+        </p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="OpenCreate">
+        <i class="bi bi-plus-lg me-1"></i> New group
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(bannerError))
+{
+    <div class="alert alert-danger">@bannerError</div>
+}
+
+@if (groups is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (groups.Count == 0)
+{
+    <div class="arca-empty-state">
+        <i class="bi bi-diagram-3 arca-empty-icon"></i>
+        <h2 class="h5">No groups yet</h2>
+        <p>Use a group when several people should share the same access on a folder.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Members</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var group in groups)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">
+                                    @group.Name
+                                    @if (group.IsExternallyManaged)
+                                    {
+                                        <span class="arca-chip ms-1">External</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(group.Description))
+                                {
+                                    <div class="small text-body-secondary">@group.Description</div>
+                                }
+                            </td>
+                            <td>
+                                @if (group.Members.Count == 0)
+                                {
+                                    <span class="text-body-secondary">None</span>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var member in group.Members)
+                                        {
+                                            <span class="arca-chip">@(member.DisplayName ?? member.UserName ?? member.UserId)</span>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        disabled="@group.IsExternallyManaged"
+                                        title="@(group.IsExternallyManaged ? "Managed by the identity provider" : null)"
+                                        @onclick="() => OpenEdit(group)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => DeleteAsync(group)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showEditor)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">@(form.Id == 0 ? "New group" : "Edit group")</h2>
+                    <button type="button" class="btn-close" @onclick="CloseEditor" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(modalError))
+                    {
+                        <div class="alert alert-danger py-2 small">@modalError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label" for="group-name">Name</label>
+                        <input id="group-name" class="form-control" @bind="form.Name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="group-desc">Description</label>
+                        <input id="group-desc" class="form-control" @bind="form.Description" />
+                    </div>
+                    <div class="form-label">Members</div>
+                    @foreach (var user in users)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="@($"member-{user.Id}")"
+                                   checked="@form.MemberUserIds.Contains(user.Id)"
+                                   @onchange="e => ToggleMember(user.Id, (bool)e.Value!)" />
+                            <label class="form-check-label" for="@($"member-{user.Id}")">@user.Label</label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditor">Cancel</button>
+                    <button type="button" class="btn btn-primary" disabled="@saving" @onclick="SaveAsync">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<ConfirmDialog @ref="confirmDialog" />
+
+@code {
+    private string? bannerError;
+    private ConfirmDialog? confirmDialog;
+    private GroupForm form = new();
+    private IReadOnlyList<AccessGroupDto>? groups;
+    private string? modalError;
+    private bool saving;
+    private bool showEditor;
+    private IReadOnlyList<UserInfo> users = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        users = await UserInfoService.GetAllUsersAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await AccessGroupService.ListAsync();
+        if (result.IsSuccess)
+        {
+            groups = result.Value;
+        }
+        else
+        {
+            bannerError = result.GetDisplayMessage();
+            groups = [];
+        }
+    }
+
+    private void OpenCreate()
+    {
+        form = new GroupForm();
+        modalError = null;
+        showEditor = true;
+    }
+
+    private void OpenEdit(AccessGroupDto group)
+    {
+        form = new GroupForm
+        {
+            Id = group.Id,
+            Name = group.Name,
+            Description = group.Description,
+            MemberUserIds = group.Members.Select(m => m.UserId).ToList(),
+        };
+        modalError = null;
+        showEditor = true;
+    }
+
+    private void CloseEditor() => showEditor = false;
+
+    private void ToggleMember(string userId, bool on)
+    {
+        if (on)
+        {
+            if (!form.MemberUserIds.Contains(userId))
+            {
+                form.MemberUserIds.Add(userId);
+            }
+        }
+        else
+        {
+            form.MemberUserIds.Remove(userId);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        modalError = null;
+
+        try
+        {
+            var result = await AccessGroupService.SaveAsync(new SaveAccessGroupRequest
+            {
+                Id = form.Id,
+                Name = form.Name,
+                Description = form.Description,
+                MemberUserIds = form.MemberUserIds,
+            });
+
+            if (result.IsSuccess)
+            {
+                showEditor = false;
+                Toasts.Success(form.Id == 0 ? "Group created." : "Group updated.");
+                await LoadAsync();
+            }
+            else
+            {
+                modalError = result.GetDisplayMessage();
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task DeleteAsync(AccessGroupDto group)
+    {
+        if (confirmDialog is null)
+        {
+            return;
+        }
+
+        if (!await confirmDialog.ShowAsync(
+                "Delete group",
+                $"Delete “{group.Name}”?",
+                "Delete",
+                isDestructive: true,
+                detail: "Rules that target this group will stop matching anyone."))
+        {
+            return;
+        }
+
+        var result = await AccessGroupService.DeleteAsync(group.Id);
+        if (result.IsSuccess)
+        {
+            Toasts.Success("Group deleted.");
+            await LoadAsync();
+        }
+        else
+        {
+            bannerError = result.GetDisplayMessage();
+        }
+    }
+
+    private sealed class GroupForm
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public List<string> MemberUserIds { get; set; } = [];
+    }
+}

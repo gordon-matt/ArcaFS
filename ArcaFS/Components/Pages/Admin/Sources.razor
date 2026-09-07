@@ -1,0 +1,328 @@
+@page "/admin/sources"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject ISourceService SourceService
+@inject IIndexService IndexService
+@inject IUserContextService UserContext
+@inject SidebarState SidebarState
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+
+<PageTitle>Sources - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Sources</h1>
+        <p class="text-body-secondary mb-0">
+            Each source is a folder on this machine. Permissions are per user and per path —
+            a source being writable for you does not make it writable for everyone.
+        </p>
+    </div>
+    <button type="button" class="btn btn-primary" @onclick="OpenCreate">
+        <i class="bi bi-plus-lg me-1"></i> Add source
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(bannerError))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @bannerError
+        <button type="button" class="btn-close" @onclick="() => bannerError = null" aria-label="Close"></button>
+    </div>
+}
+
+@if (sources is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (sources.Count == 0)
+{
+    <div class="arca-empty-state">
+        <i class="bi bi-hdd-stack arca-empty-icon"></i>
+        <h2 class="h5">No sources yet</h2>
+        <p>Add a folder to start browsing files.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Path</th>
+                        <th>Default access</th>
+                        <th>Index</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var source in sources)
+                    {
+                        <tr class="@(source.IsDisabled ? "opacity-50" : null)">
+                            <td>
+                                <div class="fw-semibold">
+                                    <a href="@($"/files/{source.Id}")">@source.Name</a>
+                                    @if (source.IsReadOnly)
+                                    {
+                                        <span class="arca-chip ms-1">Host read-only</span>
+                                    }
+                                    @if (source.DenyByDefault)
+                                    {
+                                        <span class="arca-chip ms-1">Deny by default</span>
+                                    }
+                                    @if (source.IsDisabled)
+                                    {
+                                        <span class="badge text-bg-secondary ms-1">Disabled</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(source.Description))
+                                {
+                                    <div class="small text-body-secondary">@source.Description</div>
+                                }
+                            </td>
+                            <td>
+                                <code class="small">@source.Path</code>
+                                @if (!source.PathExists)
+                                {
+                                    <div class="small text-danger">Folder missing</div>
+                                }
+                            </td>
+                            <td>
+                                <span class="arca-perm-chip arca-perm-allow">
+                                    @source.DefaultPermissions.ToDisplayName()
+                                </span>
+                                <div class="small text-body-secondary">
+                                    @source.AccessRuleCount @(source.AccessRuleCount == 1 ? "rule" : "rules")
+                                </div>
+                            </td>
+                            <td class="small">
+                                @if (!source.IsIndexed)
+                                {
+                                    <span class="text-body-secondary">Off</span>
+                                }
+                                else if (scanning.Contains(source.Id))
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                    <span>Scanning</span>
+                                }
+                                else if (source.LastIndexedAt is DateTime indexed)
+                                {
+                                    <div>@source.IndexedItemCount?.ToString("N0") items</div>
+                                    <div class="text-body-secondary">@indexed.ToLocalTime().ToString("g")</div>
+                                }
+                                else
+                                {
+                                    <span class="text-body-secondary">Never</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Access rules"
+                                        @onclick="() => OpenAccess(source)">
+                                    <i class="bi bi-shield-lock"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Scan now" disabled="@(!source.IsIndexed || scanning.Contains(source.Id))"
+                                        @onclick="() => ScanAsync(source)">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        title="Edit" @onclick="() => OpenEdit(source)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        title="Remove" @onclick="() => DeleteAsync(source)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (showEditor)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">@(form.Id == 0 ? "Add source" : "Edit source")</h2>
+                    <button type="button" class="btn-close" @onclick="CloseEditor" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(modalError))
+                    {
+                        <div class="alert alert-danger py-2 small">@modalError</div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="src-name">Name</label>
+                            <input id="src-name" class="form-control" @bind="form.Name" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="src-path">Folder on this machine</label>
+                            <input id="src-path" class="form-control font-monospace" @bind="form.Path"
+                                   @bind:event="oninput" @onblur="ProbePathAsync" />
+                            @if (probe is not null)
+                            {
+                                <div class="form-text @(probe.Exists && probe.CanRead ? "text-success" : "text-danger")">
+                                    @if (probe.Message is not null)
+                                    {
+                                        @probe.Message
+                                    }
+                                    else if (probe.Exists && probe.IsDirectory)
+                                    {
+                                        <text>Found. @(probe.ImmediateChildCount?.ToString("N0") ?? "?") items.
+                                            @(probe.CanWrite ? "Writable." : "Read-only for the server process.")</text>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="src-desc">Description</label>
+                            <input id="src-desc" class="form-control" @bind="form.Description" />
+                        </div>
+
+                        <div class="col-12">
+                            <h3 class="h6 mb-2">Permissions</h3>
+                            <p class="small text-body-secondary">
+                                Default permissions apply when no access rule matches. For
+                                “my folder is writable, the shared folder is read-only”, keep this
+                                source's default at read-only (or none) and add a rule for yourself.
+                            </p>
+                            <PermissionFlagsEditor @bind-Value="form.DefaultPermissions" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input id="src-deny" class="form-check-input" type="checkbox"
+                                       @bind="form.DenyByDefault" />
+                                <label class="form-check-label" for="src-deny">
+                                    Deny by default
+                                </label>
+                            </div>
+                            <div class="form-text">Hide everything unless a rule allows it.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input id="src-readonly" class="form-check-input" type="checkbox"
+                                       @bind="form.IsReadOnly" />
+                                <label class="form-check-label" for="src-readonly">
+                                    Clamp to read-only
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                Host-level lock. Everyone, including you, loses write bits.
+                                Prefer a per-user rule if you still need to write.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input id="src-bypass" class="form-check-input" type="checkbox"
+                                       @bind="form.AdministratorsBypassRules" />
+                                <label class="form-check-label" for="src-bypass">
+                                    Administrators bypass rules
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input id="src-sidebar" class="form-check-input" type="checkbox"
+                                       @bind="form.IsVisibleInSidebar" />
+                                <label class="form-check-label" for="src-sidebar">
+                                    Show in sidebar
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="src-scope">Default user scope</label>
+                            <input id="src-scope" class="form-control font-monospace"
+                                   placeholder="/${username}" @bind="form.DefaultUserScope" />
+                            <div class="form-text">
+                                Limits each user to a folder. Use
+                                <code>@Constants.PathTokens.UserName</code> for home directories.
+                            </div>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input id="src-homedir" class="form-check-input" type="checkbox"
+                                       @bind="form.CreateUserDirectory" />
+                                <label class="form-check-label" for="src-homedir">
+                                    Create the user folder if missing
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input id="src-indexed" class="form-check-input" type="checkbox"
+                                       @bind="form.IsIndexed" />
+                                <label class="form-check-label" for="src-indexed">Index for search</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="src-interval">Scan every (minutes)</label>
+                            <input id="src-interval" class="form-control" type="number" min="0"
+                                   @bind="form.IndexIntervalMinutes" />
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mt-4">
+                                <input id="src-hidden" class="form-check-input" type="checkbox"
+                                       @bind="form.IgnoreHiddenFiles" />
+                                <label class="form-check-label" for="src-hidden">Ignore hidden files</label>
+                            </div>
+                            <div class="form-check">
+                                <input id="src-links" class="form-check-input" type="checkbox"
+                                       @bind="form.FollowSymlinks" />
+                                <label class="form-check-label" for="src-links">Follow symbolic links</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="src-exclude">Exclude patterns</label>
+                            <textarea id="src-exclude" class="form-control font-monospace" rows="2"
+                                      placeholder="node_modules&#10;*.tmp" @bind="form.ExcludePatterns"></textarea>
+                            <div class="form-text">One glob per line. Applied when indexing.</div>
+                        </div>
+
+                        @if (form.Id != 0)
+                        {
+                            <div class="col-md-6">
+                                <label class="form-label" for="src-order">Sort order</label>
+                                <input id="src-order" class="form-control" type="number" @bind="form.SortOrder" />
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <div class="form-check mb-2">
+                                    <input id="src-disabled" class="form-check-input" type="checkbox"
+                                           @bind="form.IsDisabled" />
+                                    <label class="form-check-label" for="src-disabled">Disabled</label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditor">Cancel</button>
+                    <button type="button" class="btn btn-primary" disabled="@saving" @onclick="SaveAsync">
+                        @if (saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<ConfirmDialog @ref="confirmDialog" />

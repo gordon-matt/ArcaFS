@@ -1,0 +1,313 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject IAuthProviderService AuthProviderService
+@inject IUserInfoService UserInfoService
+@inject IUserContextService UserContext
+@inject IAccessGroupService AccessGroupService
+@inject IServiceProvider Services
+@inject ToastService Toasts
+
+<PageTitle>Users - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Users</h1>
+        <p class="text-body-secondary mb-0">
+            @switch (AuthProviderService.Provider)
+            {
+                case AuthProvider.Identity:
+                    <text>Local accounts (ASP.NET Identity). File access is granted on the Access rules page, not here.</text>
+                    break;
+                case AuthProvider.Keycloak:
+                    <text>Accounts live in Keycloak. This list is read-only. File access is still configured under Access rules.</text>
+                    break;
+                case AuthProvider.None:
+                    <text>Authentication is off — only the synthetic local user exists.</text>
+                    break;
+            }
+        </p>
+    </div>
+    @if (AuthProviderService.Provider == AuthProvider.Identity && adminUsers is not null)
+    {
+        <button type="button" class="btn btn-primary" @onclick="OpenCreate">
+            <i class="bi bi-person-plus me-1"></i> New user
+        </button>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(bannerError))
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @bannerError
+        <button type="button" class="btn-close" @onclick="() => bannerError = null" aria-label="Close"></button>
+    </div>
+}
+
+@if (AuthProviderService.Provider == AuthProvider.Identity && adminUsers is not null)
+{
+    @if (identityLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (identityRows is null || identityRows.Count == 0)
+    {
+        <div class="arca-empty-state">
+            <i class="bi bi-people arca-empty-icon"></i>
+            <h2 class="h5">No users found</h2>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                            <th>Groups</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in identityRows)
+                        {
+                            bool isSelf = string.Equals(user.Id, currentUserId, StringComparison.Ordinal);
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">
+                                        @(user.DisplayName ?? user.UserName)
+                                        @if (isSelf)
+                                        {
+                                            <span class="badge text-bg-secondary ms-1">You</span>
+                                        }
+                                    </div>
+                                    @if (!string.Equals(user.DisplayName, user.UserName, StringComparison.Ordinal))
+                                    {
+                                        <div class="small text-body-secondary">@user.UserName</div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(user.Email))
+                                    {
+                                        <a href="@($"mailto:{user.Email}")">@user.Email</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-body-secondary">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var role in user.Roles)
+                                        {
+                                            <span class="arca-chip">@role</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (user.GroupNames.Count == 0)
+                                    {
+                                        <span class="text-body-secondary">—</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var group in user.GroupNames)
+                                            {
+                                                <span class="arca-chip">@group</span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    @if (user.IsLockedOut)
+                                    {
+                                        <span class="badge text-bg-warning">Locked</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-success">Active</span>
+                                    }
+                                    @if (user.CanCreateShares)
+                                    {
+                                        <span class="arca-chip ms-1">Shares</span>
+                                    }
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => OpenEdit(user)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-warning"
+                                            disabled="@isSelf" @onclick="() => ToggleLockoutAsync(user)">
+                                        <i class="bi @(user.IsLockedOut ? "bi-unlock" : "bi-lock")"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            disabled="@isSelf" @onclick="() => DeleteAsync(user)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    @if (showEditor)
+    {
+        <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5">@(isCreate ? "New user" : "Edit user")</h2>
+                        <button type="button" class="btn-close" @onclick="CloseEditor" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        @if (!string.IsNullOrEmpty(modalError))
+                        {
+                            <div class="alert alert-danger py-2 small">@modalError</div>
+                        }
+
+                        @if (isCreate)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label" for="user-name">Username</label>
+                                <input id="user-name" class="form-control" @bind="form.UserName" autocomplete="off" />
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label" for="user-email">Email</label>
+                            <input id="user-email" class="form-control" type="email" @bind="form.Email" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="user-display">Display name</label>
+                            <input id="user-display" class="form-control" @bind="form.DisplayName" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="user-password">
+                                @(isCreate ? "Password" : "New password")
+                            </label>
+                            <input id="user-password" class="form-control" type="password"
+                                   autocomplete="new-password" @bind="form.Password" />
+                            @if (!isCreate)
+                            {
+                                <div class="form-text">Leave blank to keep the current password.</div>
+                            }
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-label">Roles</div>
+                            @foreach (var role in assignableRoles)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="@($"role-{role.Name}")"
+                                           checked="@form.Roles.Contains(role.Name)"
+                                           @onchange="e => ToggleRole(role.Name, (bool)e.Value!)" />
+                                    <label class="form-check-label" for="@($"role-{role.Name}")">@role.Name</label>
+                                </div>
+                            }
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-label">Access groups</div>
+                            @if (groups.Count == 0)
+                            {
+                                <div class="form-text">No groups yet. Create them under Groups.</div>
+                            }
+                            @foreach (var group in groups)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="@($"grp-{group.Id}")"
+                                           checked="@form.GroupIds.Contains(group.Id)"
+                                           @onchange="e => ToggleGroup(group.Id, (bool)e.Value!)" />
+                                    <label class="form-check-label" for="@($"grp-{group.Id}")">@group.Name</label>
+                                </div>
+                            }
+                        </div>
+                        <div class="form-check">
+                            <input id="user-shares" class="form-check-input" type="checkbox"
+                                   @bind="form.CanCreateShares" />
+                            <label class="form-check-label" for="user-shares">Can create share links</label>
+                        </div>
+                        <div class="form-check">
+                            <input id="user-api" class="form-check-input" type="checkbox"
+                                   @bind="form.CanUseApi" />
+                            <label class="form-check-label" for="user-api">Can use API tokens</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditor">Cancel</button>
+                        <button type="button" class="btn btn-primary" disabled="@saving" @onclick="SaveAsync">
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+}
+else
+{
+    @if (readOnlyUsers is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (readOnlyUsers.Count == 0)
+    {
+        <div class="arca-empty-state">
+            <i class="bi bi-people arca-empty-icon"></i>
+            <h2 class="h5">No users found</h2>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Roles</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in readOnlyUsers)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@(user.DisplayName ?? user.UserName)</div>
+                                    @if (!string.Equals(user.DisplayName, user.UserName, StringComparison.Ordinal))
+                                    {
+                                        <div class="small text-body-secondary">@user.UserName</div>
+                                    }
+                                </td>
+                                <td>@(user.Email ?? "—")</td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var role in user.Roles)
+                                        {
+                                            <span class="arca-chip">@role</span>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+<ConfirmDialog @ref="confirmDialog" />

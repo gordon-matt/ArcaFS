@@ -1,0 +1,167 @@
+﻿@page "/"
+@attribute [Authorize]
+
+@inject IDashboardService DashboardService
+@inject NavigationManager Navigation
+
+<PageTitle>ArcaFS</PageTitle>
+
+<h1 class="h4 mb-3">Files</h1>
+
+@if (stats is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading</span>
+        </div>
+    </div>
+}
+else if (stats.Sources.Count == 0)
+{
+    <div class="text-center py-5">
+        <i class="bi bi-hdd-stack display-4 text-body-tertiary d-block mb-2"></i>
+        <p class="text-body-secondary">No sources are available to you yet.</p>
+        <AuthorizeView Roles="@Constants.Roles.Administrator">
+            <a class="btn btn-primary" href="/admin/sources">
+                <i class="bi bi-plus-lg me-1"></i> Add a source
+            </a>
+        </AuthorizeView>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        @foreach (var source in stats.Sources)
+        {
+            <div class="col-12 col-md-6 col-xl-4">
+                <a class="card h-100 text-decoration-none text-body"
+                   href="@($"/files/{source.Id}")">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start gap-3">
+                            <i class="bi bi-folder-fill fs-2 text-warning"></i>
+                            <div class="min-w-0 flex-grow-1">
+                                <h2 class="h6 mb-1 arca-truncate">@source.Name</h2>
+                                @if (!string.IsNullOrWhiteSpace(source.Description))
+                                {
+                                    <p class="small text-body-secondary mb-2 arca-truncate">
+                                        @source.Description
+                                    </p>
+                                }
+                                <div class="small text-body-secondary">
+                                    @if (source.IndexedItemCount is long items)
+                                    {
+                                        <span>@items.ToString("N0") items</span>
+                                        <span class="mx-1">·</span>
+                                        <span>@FormatBytes(source.IndexedSizeBytes ?? 0)</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Not indexed</span>
+                                    }
+                                </div>
+                            </div>
+                            @if (source.IsReadOnly)
+                            {
+                                <i class="bi bi-lock-fill text-body-tertiary" title="Read-only"></i>
+                            }
+                        </div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+
+    <AuthorizeView Roles="@Constants.Roles.Administrator">
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="small text-body-secondary">Users</div>
+                        <div class="fs-4">@stats.UserCount</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="small text-body-secondary">Access rules</div>
+                        <div class="fs-4">@stats.AccessRuleCount</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="small text-body-secondary">Active shares</div>
+                        <div class="fs-4">@stats.ActiveShareCount</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card h-100">
+                    <div class="card-body py-3">
+                        <div class="small text-body-secondary">Last indexed</div>
+                        <div class="fs-6 pt-1">
+                            @(stats.LastIndexedAt?.ToLocalTime().ToString("g") ?? "Never")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </AuthorizeView>
+
+    @if (stats.RecentActivity.Count > 0)
+    {
+        <h2 class="h6">Recent activity</h2>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <tbody>
+                    @foreach (var activity in stats.RecentActivity)
+                    {
+                        <tr>
+                            <td style="width: 9rem;">
+                                <span class="badge text-bg-@activity.Kind.GetBadgeClass()">
+                                    @activity.Kind.GetDisplayName()
+                                </span>
+                            </td>
+                            <td class="arca-truncate" title="@activity.Path">@activity.Path</td>
+                            <td style="width: 10rem;" class="small text-body-secondary">
+                                @activity.UserName
+                            </td>
+                            <td style="width: 10rem;" class="small text-body-secondary">
+                                @activity.OccurredAt.ToLocalTime().ToString("g")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private DashboardStatsDto? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await DashboardService.GetStatsAsync();
+        stats = result.IsSuccess ? result.Value : null;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double size = bytes;
+        int unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? $"{bytes} B"
+            : $"{size.ToString(size < 10 ? "0.0" : "0", CultureInfo.InvariantCulture)} {units[unit]}";
+    }
+}

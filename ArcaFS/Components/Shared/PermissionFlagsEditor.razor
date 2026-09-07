@@ -1,0 +1,57 @@
+@* Checkbox grid plus one-click presets for a <see cref="FilePermission"/> mask. *@
+
+<div class="d-flex flex-wrap gap-1 mb-2">
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Apply(FilePermission.ReadOnly)">
+        Read only
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Apply(FilePermission.Contributor)">
+        Contributor
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Apply(FilePermission.Editor)">
+        Editor
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Apply(FilePermission.Full)">
+        Full control
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Apply(FilePermission.None)">
+        None
+    </button>
+</div>
+
+<div class="row g-2">
+    @foreach (var flag in FilePermissionExtensions.AllFlags)
+    {
+        <div class="col-6 col-md-4">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="@IdFor(flag)"
+                       checked="@Value.Has(flag)"
+                       disabled="@Disabled"
+                       @onchange="e => ToggleAsync(flag, (bool)e.Value!)" />
+                <label class="form-check-label" for="@IdFor(flag)">@flag.ToDisplayName()</label>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public FilePermission Value { get; set; }
+
+    [Parameter]
+    public EventCallback<FilePermission> ValueChanged { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    private readonly string idPrefix = "perm-" + Guid.NewGuid().ToString("N")[..8];
+
+    private string IdFor(FilePermission flag) => $"{idPrefix}-{flag}";
+
+    private Task Apply(FilePermission preset) => ValueChanged.InvokeAsync(preset);
+
+    private Task ToggleAsync(FilePermission flag, bool on)
+    {
+        var next = on ? Value | flag : Value & ~flag;
+        return ValueChanged.InvokeAsync(next);
+    }
+}

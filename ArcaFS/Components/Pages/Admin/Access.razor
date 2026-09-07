@@ -1,0 +1,404 @@
+@page "/admin/access"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject IAccessRuleService AccessRuleService
+@inject IAccessGroupService AccessGroupService
+@inject ISourceService SourceService
+@inject IPermissionService PermissionService
+@inject IUserInfoService UserInfoService
+@inject IUserContextService UserContext
+@inject ToastService Toasts
+
+<PageTitle>Access rules - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Access rules</h1>
+        <p class="text-body-secondary mb-0">
+            Permissions are per user, per path, on each source. That is how one person can write
+            to Shared Files while everyone else can only read — a source-wide read-only switch
+            cannot express that.
+        </p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(bannerError))
+{
+    <div class="alert alert-danger">@bannerError</div>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <label class="form-label" for="access-source">Source</label>
+        <select id="access-source" class="form-select" value="@selectedSourceId"
+                @onchange="OnSourceChangedAsync">
+            <option value="0">Select a source…</option>
+            @if (sources is not null)
+            {
+                @foreach (var source in sources)
+                {
+                    <option value="@source.Id">@source.Name</option>
+                }
+            }
+        </select>
+    </div>
+</div>
+
+@if (selectedSource is not null)
+{
+    <div class="alert alert-secondary small">
+        Default when no rule matches:
+        <span class="arca-perm-chip arca-perm-allow">@selectedSource.DefaultPermissions.ToDisplayName()</span>
+        @if (selectedSource.DenyByDefault)
+        {
+            <span class="arca-chip ms-1">Deny by default</span>
+        }
+        @if (selectedSource.IsReadOnly)
+        {
+            <span class="arca-chip ms-1">Host read-only</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(selectedSource.DefaultUserScope))
+        {
+            <span class="ms-2">Scope <code>@selectedSource.DefaultUserScope</code></span>
+        }
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Templates</span>
+        </div>
+        <div class="card-body">
+            <p class="small text-body-secondary">
+                Start from a common layout, then edit the rules. The “shared, read-only except
+                for me” template is the one File Browser Quantum cannot do per user.
+            </p>
+            <div class="row g-3">
+                @foreach (var template in templates)
+                {
+                    <div class="col-md-6 col-xl-4">
+                        <div class="border rounded p-3 h-100 d-flex flex-column">
+                            <h2 class="h6">@template.Name</h2>
+                            <p class="small text-body-secondary flex-grow-1">@template.Description</p>
+                            @if (template.Key == AccessTemplates.SharedReadOnlyOwnerWrites)
+                            {
+                                <label class="form-label small" for="template-owner">Owner who can write</label>
+                                <select id="template-owner" class="form-select form-select-sm mb-2"
+                                        @bind="templateOwnerUserId">
+                                    <option value="">Me (@(UserContext.GetCurrentUserName() ?? "current user"))</option>
+                                    @foreach (var user in users)
+                                    {
+                                        <option value="@user.Id">@user.Label</option>
+                                    }
+                                </select>
+                            }
+                            @if (template.Key == AccessTemplates.GroupWorkspace)
+                            {
+                                <label class="form-label small" for="template-group">Group</label>
+                                <select id="template-group" class="form-select form-select-sm mb-2"
+                                        @bind="templateGroupId">
+                                    <option value="">Pick a group after applying</option>
+                                    @foreach (var group in groups)
+                                    {
+                                        <option value="@group.Id">@group.Name</option>
+                                    }
+                                </select>
+                            }
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="@($"tpl-replace-{template.Key}")"
+                                       @bind="replaceExisting" />
+                                <label class="form-check-label small" for="@($"tpl-replace-{template.Key}")">
+                                    Replace existing rules
+                                </label>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-auto"
+                                    disabled="@applyingTemplate" @onclick="() => ApplyTemplateAsync(template)">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0">Rules</h2>
+        <button type="button" class="btn btn-primary btn-sm" @onclick="OpenCreate">
+            <i class="bi bi-plus-lg me-1"></i> Add rule
+        </button>
+    </div>
+
+    @if (rules is null)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border spinner-border-sm"></div>
+        </div>
+    }
+    else if (rules.Count == 0)
+    {
+        <div class="arca-empty-state py-4">
+            <p class="mb-0">No rules yet. Everyone gets the source default above.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card mb-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Path</th>
+                            <th>Who</th>
+                            <th>Effect</th>
+                            <th>Permissions</th>
+                            <th>Reach</th>
+                            <th class="arca-rule-priority">Prio</th>
+                            <th class="text-end"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var rule in rules)
+                        {
+                            <tr class="arca-rule-row">
+                                <td><code>@rule.Path</code></td>
+                                <td>
+                                    <div>@rule.SubjectType</div>
+                                    @if (!string.IsNullOrEmpty(rule.SubjectDisplayName))
+                                    {
+                                        <div class="small text-body-secondary">@rule.SubjectDisplayName</div>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="arca-perm-chip @(rule.Effect == AccessEffect.Allow ? "arca-perm-allow" : "arca-perm-deny")">
+                                        @rule.Effect
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (string name in rule.Permissions.ToDisplayNames())
+                                        {
+                                            <span class="arca-perm-chip arca-perm-allow">@name</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(rule.Description))
+                                    {
+                                        <div class="small text-body-secondary mt-1">@rule.Description</div>
+                                    }
+                                </td>
+                                <td class="small">@FormatPropagation(rule.Propagation)</td>
+                                <td class="arca-rule-priority">@rule.Priority</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            @onclick="() => OpenEdit(rule)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => DeleteAsync(rule)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header">What can this user do here?</div>
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="sim-user">User</label>
+                    <select id="sim-user" class="form-select" @bind="simulateUserId">
+                        <option value="">Anonymous visitor</option>
+                        @foreach (var user in users)
+                        {
+                            <option value="@user.Id">@user.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label" for="sim-path">Path</label>
+                    <input id="sim-path" class="form-control font-monospace" @bind="simulatePath" />
+                </div>
+                <div class="col-md-3">
+                    <button type="button" class="btn btn-outline-primary w-100" @onclick="ExplainAsync">
+                        Explain
+                    </button>
+                </div>
+            </div>
+
+            @if (explanation is not null)
+            {
+                <div class="mt-3">
+                    <div class="mb-2">
+                        Effective:
+                        @foreach (string name in explanation.Effective.ToDisplayNames())
+                        {
+                            <span class="arca-perm-chip arca-perm-allow">@name</span>
+                        }
+                        @if (explanation.Effective == FilePermission.None)
+                        {
+                            <span class="arca-perm-chip arca-perm-deny">None</span>
+                        }
+                        @if (explanation.IsAdministratorBypass)
+                        {
+                            <span class="arca-chip ms-1">Administrator bypass</span>
+                        }
+                        @if (explanation.IsClampedByReadOnlySource)
+                        {
+                            <span class="arca-chip ms-1">Clamped by host read-only</span>
+                        }
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Step</th>
+                                    <th>Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var step in explanation.Trace)
+                                {
+                                    <tr class="arca-trace-row">
+                                        <td>
+                                            @step.Description
+                                            @if (step.RulePath is not null)
+                                            {
+                                                <div class="text-body-secondary"><code>@step.RulePath</code></div>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="text-body-secondary">@step.Before.ToDisplayList()</span>
+                                            <i class="bi bi-arrow-right mx-1"></i>
+                                            <span>@step.After.ToDisplayList()</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (showEditor)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">@(form.Id == 0 ? "Add rule" : "Edit rule")</h2>
+                    <button type="button" class="btn-close" @onclick="CloseEditor" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(modalError))
+                    {
+                        <div class="alert alert-danger py-2 small">@modalError</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label" for="rule-path">Path</label>
+                        <input id="rule-path" class="form-control font-monospace" @bind="form.Path" />
+                        <div class="form-text">
+                            Use <code>@Constants.PathTokens.UserName</code> or
+                            <code>@Constants.PathTokens.UserId</code> for per-user folders.
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="rule-subject-type">Who</label>
+                            <select id="rule-subject-type" class="form-select" @bind="form.SubjectType">
+                                @foreach (AccessSubjectType type in Enum.GetValues<AccessSubjectType>())
+                                {
+                                    <option value="@type">@type</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            @if (form.SubjectType == AccessSubjectType.User)
+                            {
+                                <label class="form-label" for="rule-user">User</label>
+                                <select id="rule-user" class="form-select" @bind="form.SubjectId">
+                                    <option value="">Select…</option>
+                                    @foreach (var user in users)
+                                    {
+                                        <option value="@user.Id">@user.Label</option>
+                                    }
+                                </select>
+                            }
+                            else if (form.SubjectType == AccessSubjectType.Group)
+                            {
+                                <label class="form-label" for="rule-group">Group</label>
+                                <select id="rule-group" class="form-select" @bind="form.SubjectId">
+                                    <option value="">Select…</option>
+                                    @foreach (var group in groups)
+                                    {
+                                        <option value="@group.Id">@group.Name</option>
+                                    }
+                                </select>
+                            }
+                            else if (form.SubjectType == AccessSubjectType.Role)
+                            {
+                                <label class="form-label" for="rule-role">Role</label>
+                                <select id="rule-role" class="form-select" @bind="form.SubjectId">
+                                    <option value="">Select…</option>
+                                    <option value="@Constants.Roles.Administrator">@Constants.Roles.Administrator</option>
+                                    <option value="@Constants.Roles.User">@Constants.Roles.User</option>
+                                </select>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label" for="rule-effect">Effect</label>
+                            <select id="rule-effect" class="form-select" @bind="form.Effect">
+                                <option value="@AccessEffect.Allow">Allow</option>
+                                <option value="@AccessEffect.Deny">Deny</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="rule-prop">Reach</label>
+                            <select id="rule-prop" class="form-select" @bind="form.Propagation">
+                                @foreach (AccessPropagation prop in Enum.GetValues<AccessPropagation>())
+                                {
+                                    <option value="@prop">@FormatPropagation(prop)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="rule-prio">Priority</label>
+                            <input id="rule-prio" class="form-control" type="number" @bind="form.Priority" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Permissions</label>
+                        <PermissionFlagsEditor @bind-Value="form.Permissions" />
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label" for="rule-desc">Description</label>
+                        <input id="rule-desc" class="form-control" @bind="form.Description" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CloseEditor">Cancel</button>
+                    <button type="button" class="btn btn-primary" disabled="@saving" @onclick="SaveAsync">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<ConfirmDialog @ref="confirmDialog" />

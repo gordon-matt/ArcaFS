@@ -1,0 +1,530 @@
+@page "/s/{Token}"
+@page "/s/{Token}/{*Path}"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+
+@inject IShareService ShareService
+@inject IFileSystemService FileSystemService
+@inject DownloadTicketService DownloadTickets
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ToastService Toasts
+
+<PageTitle>@(info?.Title ?? "Shared files") - ArcaFS</PageTitle>
+
+<div class="container py-4">
+    @if (notFound)
+    {
+        @* One message for expired, exhausted, disabled and non-existent, so probing a token
+           can't distinguish them. *@
+        <div class="text-center py-5">
+            <i class="bi bi-link-45deg display-4 text-body-tertiary"></i>
+            <h1 class="h4 mt-3">This link isn't available</h1>
+            <p class="text-body-secondary">
+                It may have expired, reached its download limit, or been removed.
+            </p>
+        </div>
+    }
+    else if (info is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (session is null)
+    {
+        <div class="mx-auto" style="max-width: 26rem;">
+            <div class="text-center mb-3">
+                <i class="bi bi-shield-lock display-5 text-primary"></i>
+                <h1 class="h4 mt-2">@(info.Title ?? "Protected link")</h1>
+                @if (!string.IsNullOrWhiteSpace(info.Description))
+                {
+                    <p class="text-body-secondary">@info.Description</p>
+                }
+            </div>
+
+            <EditForm Model="this" OnValidSubmit="UnlockAsync">
+                <div class="mb-3">
+                    <label class="form-label" for="sharePassword">Password</label>
+                    <input id="sharePassword" type="password" class="form-control" autofocus
+                           autocomplete="current-password" @bind="password" />
+                    @if (passwordError)
+                    {
+                        <div class="text-danger small mt-1">That password isn't right.</div>
+                    }
+                </div>
+                <button type="submit" class="btn btn-primary w-100" disabled="@isBusy">
+                    @if (isBusy)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Unlock
+                </button>
+            </EditForm>
+        </div>
+    }
+    else if (info.IsSingleFile)
+    {
+        <div class="mx-auto text-center" style="max-width: 30rem;">
+            <FileIcon Kind="info.Kind" CssClass="display-1" />
+            <h1 class="h4 mt-3 text-break">@info.FileName</h1>
+            @if (info.FileSizeBytes is long size)
+            {
+                <p class="text-body-secondary">@FormatBytes(size)</p>
+            }
+
+            <div class="d-flex justify-content-center gap-2">
+                <a class="btn btn-primary" href="@FileUrl(null, inline: false)">
+                    <i class="bi bi-download me-1"></i> Download
+                </a>
+                @if (!info.DisableFileViewer && IsPreviewable(info.Kind))
+                {
+                    <a class="btn btn-outline-secondary" target="_blank" rel="noopener"
+                       href="@FileUrl(null, inline: true)">
+                        <i class="bi bi-eye me-1"></i> Preview
+                    </a>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+            <h1 class="h5 mb-0">
+                <i class="bi bi-folder-fill text-warning me-1"></i>
+                @(info.Title ?? "Shared folder")
+            </h1>
+
+            @if (Segments.Length > 0)
+            {
+                <nav class="arca-breadcrumb ms-2">
+                    <a href="@ShareUrl(null)">Top</a>
+                    <span class="arca-breadcrumb-sep">/</span>
+                    @for (int i = 0; i < Segments.Length; i++)
+                    {
+                        string partial = string.Join('/', Segments[..(i + 1)]);
+
+                        if (i == Segments.Length - 1)
+                        {
+                            <span class="arca-breadcrumb-current">@Segments[i]</span>
+                        }
+                        else
+                        {
+                            <a href="@ShareUrl(partial)">@Segments[i]</a>
+                            <span class="arca-breadcrumb-sep">/</span>
+                        }
+                    }
+                </nav>
+            }
+
+            <div class="ms-auto d-flex gap-2">
+                @if (selection.Count > 0)
+                {
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="DownloadSelectionAsync">
+                        <i class="bi bi-download me-1"></i>
+                        Download @selection.Count
+                    </button>
+                }
+                @if (CanUpload)
+                {
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            @onclick="PickFilesAsync">
+                        <i class="bi bi-upload me-1"></i> Upload
+                    </button>
+                }
+            </div>
+        </div>
+
+        @if (listing is null)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else if (listing.Items.Count == 0)
+        {
+            <p class="text-body-secondary text-center py-5">This folder is empty.</p>
+        }
+        else
+        {
+            <div class="table-responsive" @ref="listingElement">
+                <table class="table table-sm table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width: 2.5rem;"></th>
+                            <th>Name</th>
+                            <th class="d-none d-sm-table-cell" style="width: 7rem;">Size</th>
+                            <th class="d-none d-md-table-cell" style="width: 11rem;">Modified</th>
+                            <th style="width: 3rem;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in listing.Items)
+                        {
+                            <tr @key="item.Path">
+                                <td>
+                                    <input type="checkbox" class="form-check-input"
+                                           aria-label="@($"Select {item.Name}")"
+                                           checked="@selection.Contains(item.Path)"
+                                           @onchange="() => ToggleSelect(item)" />
+                                </td>
+                                <td>
+                                    <div class="arca-name-cell">
+                                        @if (!info.DisableThumbnails && item.HasThumbnail)
+                                        {
+                                            <img class="arca-item-icon" loading="lazy" alt=""
+                                                 src="@ThumbnailUrl(item)" />
+                                        }
+                                        else
+                                        {
+                                            <FileIcon Kind="item.Kind" CssClass="arca-item-icon" />
+                                        }
+
+                                        @if (item.IsDirectory)
+                                        {
+                                            <a class="arca-name-text"
+                                               href="@ShareUrl(RelativePathOf(item))">@item.Name</a>
+                                        }
+                                        else if (!info.DisableFileViewer && IsPreviewable(item.Kind))
+                                        {
+                                            <a class="arca-name-text" target="_blank" rel="noopener"
+                                               href="@FileUrl(RelativePathOf(item), inline: true)">@item.Name</a>
+                                        }
+                                        else
+                                        {
+                                            <span class="arca-name-text">@item.Name</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="d-none d-sm-table-cell arca-size">
+                                    @(item.IsDirectory ? "—" : FormatBytes(item.SizeBytes))
+                                </td>
+                                <td class="d-none d-md-table-cell arca-modified">
+                                    @item.ModifiedAt.ToLocalTime().ToString("g")
+                                </td>
+                                <td>
+                                    <a class="btn btn-sm btn-link" title="Download"
+                                       href="@FileUrl(RelativePathOf(item), inline: false)">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+    @if (info is not null && session is not null && info.ExpiresAt is DateTime expiresAt)
+    {
+        <p class="small text-body-secondary text-center mt-4">
+            This link expires @expiresAt.ToLocalTime().ToString("g").
+        </p>
+    }
+</div>
+
+<UploadTray Uploads="uploads" OnCancel="CancelUploadAsync" OnDismiss="() => uploads.Clear()" />
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Path { get; set; }
+
+    private PublicShareInfoDto? info;
+    private ShareSession? session;
+    private DirectoryListingDto? listing;
+    private bool notFound;
+    private bool isBusy;
+    private bool passwordError;
+    private string password = string.Empty;
+
+    private readonly HashSet<string> selection = new(StringComparer.Ordinal);
+    private readonly List<UploadTray.UploadProgress> uploads = [];
+
+    private ElementReference listingElement;
+    private DotNetObjectReference<PublicShare>? dotNetRef;
+
+    private string[] Segments => VirtualPath.GetSegments(VirtualPath.Normalize(Path));
+
+    private bool CanUpload => session?.Mode is ShareMode.Upload or ShareMode.ReadWrite;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        selection.Clear();
+
+        if (info is null)
+        {
+            var result = await ShareService.GetPublicInfoAsync(Token);
+
+            if (!result.IsSuccess)
+            {
+                notFound = true;
+                return;
+            }
+
+            info = result.Value;
+
+            // Unprotected links open straight away; a password prompt for nothing would just be
+            // a dead end for the recipient.
+            if (!info.RequiresPassword)
+            {
+                await AuthorizeAsync(null);
+            }
+        }
+
+        if (session is not null && !info!.IsSingleFile)
+        {
+            await LoadListingAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+        }
+    }
+
+    private async Task UnlockAsync()
+    {
+        isBusy = true;
+        passwordError = false;
+
+        await AuthorizeAsync(password);
+
+        isBusy = false;
+
+        if (session is null)
+        {
+            passwordError = true;
+            return;
+        }
+
+        if (!info!.IsSingleFile)
+        {
+            await LoadListingAsync();
+        }
+    }
+
+    private async Task AuthorizeAsync(string? candidatePassword)
+    {
+        var result = await ShareService.AuthorizeAsync(Token, candidatePassword);
+        session = result.IsSuccess ? result.Value : null;
+    }
+
+    private async Task LoadListingAsync()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        // Rebasing happens in the session rather than here, so a crafted URL path cannot reach
+        // outside the shared subtree.
+        string? resolved = session.ResolveWithinShare(Path);
+
+        if (resolved is null)
+        {
+            notFound = true;
+            return;
+        }
+
+        var result = await FileSystemService.ListAsync(
+            new ListingRequest { SourceId = session.SourceId, Path = resolved },
+            session.Principal);
+
+        listing = result.IsSuccess ? result.Value : null;
+
+        if (!result.IsSuccess)
+        {
+            notFound = true;
+        }
+    }
+
+    private void ToggleSelect(FileSystemItemDto item)
+    {
+        if (!selection.Remove(item.Path))
+        {
+            selection.Add(item.Path);
+        }
+    }
+
+    private async Task DownloadSelectionAsync()
+    {
+        if (session is null)
+        {
+            return;
+        }
+
+        var paths = selection.Select(RelativePathFromAbsolute).ToList();
+
+        if (paths.Count == 1
+            && listing?.Items.FirstOrDefault(i => selection.Contains(i.Path)) is { IsDirectory: false })
+        {
+            await JS.InvokeVoidAsync("arcafs.downloadUrl", FileUrl(paths[0], inline: false));
+            return;
+        }
+
+        string ticket = DownloadTickets.Create(
+            DownloadTicketService.ShareOwner(Token),
+            session.SourceId,
+            paths,
+            $"{info?.Title ?? "share"}.zip");
+
+        string url = $"/api/public/{Token}/zip/{ticket}";
+
+        await JS.InvokeVoidAsync(
+            "arcafs.downloadUrl",
+            string.IsNullOrEmpty(password) ? url : $"{url}?password={Uri.EscapeDataString(password)}");
+    }
+
+    private async Task PickFilesAsync() =>
+        await JS.InvokeVoidAsync("arcafsUploader.pickFiles", dotNetRef, false);
+
+    [JSInvokable]
+    public async Task OnFilesDropped(Files.DroppedFile[] files)
+    {
+        if (files.Length == 0 || !CanUpload)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync(
+            "arcafsUploader.uploadPendingToShare",
+            Token,
+            VirtualPath.Normalize(Path),
+            password,
+            dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnUploadProgress(long id, string fileName, long sent, long total)
+    {
+        var upload = uploads.FirstOrDefault(u => u.Id == id);
+
+        if (upload is null)
+        {
+            upload = new UploadTray.UploadProgress { Id = id, FileName = fileName };
+            uploads.Add(upload);
+        }
+
+        upload.BytesSent = sent;
+        upload.TotalBytes = total;
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnUploadComplete(long id, string fileName, bool succeeded, string? error)
+    {
+        var upload = uploads.FirstOrDefault(u => u.Id == id);
+
+        if (upload is null)
+        {
+            upload = new UploadTray.UploadProgress { Id = id, FileName = fileName };
+            uploads.Add(upload);
+        }
+
+        upload.IsComplete = true;
+        upload.Error = succeeded ? null : error ?? "The upload failed.";
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnUploadBatchComplete()
+    {
+        int failed = uploads.Count(u => u.Error is not null);
+
+        if (failed == 0)
+        {
+            Toasts.Success("Upload finished.");
+            uploads.Clear();
+        }
+        else
+        {
+            Toasts.Warning($"{failed} uploads failed.");
+        }
+
+        await LoadListingAsync();
+        StateHasChanged();
+    }
+
+    private async Task CancelUploadAsync(long id)
+    {
+        await JS.InvokeVoidAsync("arcafsUploader.cancelUpload", id);
+        uploads.RemoveAll(u => u.Id == id);
+    }
+
+    // ------------------------------------------------------------- URL construction
+
+    private string ShareUrl(string? relativePath) =>
+        string.IsNullOrEmpty(relativePath) ? $"/s/{Token}" : $"/s/{Token}/{relativePath}";
+
+    private string FileUrl(string? relativePath, bool inline)
+    {
+        string url = $"/api/public/{Token}/download" +
+            $"?path={Uri.EscapeDataString(relativePath ?? string.Empty)}" +
+            $"&inline={inline.ToString().ToLowerInvariant()}";
+
+        // The password travels on the URL because these are plain <a> links the browser must be
+        // able to follow on its own — it cannot replay the form post that unlocked the page.
+        return string.IsNullOrEmpty(password)
+            ? url
+            : $"{url}&password={Uri.EscapeDataString(password)}";
+    }
+
+    private string ThumbnailUrl(FileSystemItemDto item)
+    {
+        string url = $"/api/public/{Token}/thumb" +
+            $"?path={Uri.EscapeDataString(RelativePathOf(item))}&size=48&v={item.ModifiedAt.Ticks}";
+
+        return string.IsNullOrEmpty(password)
+            ? url
+            : $"{url}&password={Uri.EscapeDataString(password)}";
+    }
+
+    /// <summary>
+    /// Converts a listing path, which is absolute within the source, into the share-relative
+    /// path the public endpoints expect.
+    /// </summary>
+    private string RelativePathOf(FileSystemItemDto item) => RelativePathFromAbsolute(item.Path);
+
+    private string RelativePathFromAbsolute(string absolutePath)
+    {
+        string root = session?.RootPath ?? Constants.RootPath;
+
+        if (root == Constants.RootPath)
+        {
+            return absolutePath.TrimStart('/');
+        }
+
+        return absolutePath.StartsWith(root, StringComparison.Ordinal)
+            ? absolutePath[root.Length..].TrimStart('/')
+            : absolutePath.TrimStart('/');
+    }
+
+    private static bool IsPreviewable(FileKind kind) =>
+        kind is FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf or FileKind.Text;
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double size = bytes;
+        int unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? $"{bytes} B"
+            : $"{size.ToString(size < 10 ? "0.0" : "0", CultureInfo.InvariantCulture)} {units[unit]}";
+    }
+}

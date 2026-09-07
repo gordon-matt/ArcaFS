@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<!--
+		ArcaFS.Desktop wraps the Blazor Server web app inside an Electron shell using
+		ElectronNET.Core. The original ArcaFS web project is unchanged. To avoid
+		duplicating code, this project shares the source from ..\ArcaFS\ via linked
+		Compile / Content items rather than via a project reference. The Web SDK can't
+		treat another Web SDK project as a library cleanly (only one Program.Main), so
+		source linking gives us a separate entry point + assembly while reusing every
+		Razor component, page, and static asset.
+	-->
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>ArcaFS</RootNamespace>
+		<AssemblyName>ArcaFS.Desktop</AssemblyName>
+		<UserSecretsId>arcafs-desktop-8c2e1a47-3f6b-4d91-9e0c-5b7a2d4f8c13</UserSecretsId>
+		<Version>1.0.0</Version>
+		<RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Ardalis.Result" Version="10.1.0" />
+		<PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.7" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.7">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Sejil" Version="3.0.4" />
+		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+		<PackageReference Include="Serilog.Sinks.MSSqlServer" Version="9.0.3" />
+		<PackageReference Include="Serilog.Sinks.MySQL" Version="5.0.0" />
+		<PackageReference Include="Serilog.Sinks.Postgresql.Alternative" Version="4.2.0" />
+		<PackageReference Include="Serilog.Sinks.SQLite" Version="6.0.0" />
+
+		<PackageReference Include="ElectronNET.Core" Version="0.4.1" />
+		<PackageReference Include="ElectronNET.Core.AspNet" Version="0.4.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\ArcaFS.Core\ArcaFS.Core.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data\ArcaFS.Data.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.Sqlite\ArcaFS.Data.Sqlite.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.Sql\ArcaFS.Data.Sql.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.Npgsql\ArcaFS.Data.Npgsql.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.MySql\ArcaFS.Data.MySql.csproj" />
+		<ProjectReference Include="..\ArcaFS.Models\ArcaFS.Models.csproj" />
+		<ProjectReference Include="..\ArcaFS.Services\ArcaFS.Services.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\ArcaFS\**\*.cs" Exclude="..\ArcaFS\Program.cs;..\ArcaFS\bin\**\*.cs;..\ArcaFS\obj\**\*.cs" LinkBase="Shared" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="..\ArcaFS\Components\**\*.razor" Link="Components\%(RecursiveDir)%(Filename)%(Extension)" />
+		<Content Include="..\ArcaFS\Components\**\*.cshtml" Link="Components\%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="..\ArcaFS\wwwroot\**\*" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+	<ItemGroup>
+		<Folder Include="wwwroot\" />
+	</ItemGroup>
+
+</Project>

@@ -1,0 +1,183 @@
+@implements IDisposable
+@inject IPermissionService PermissionService
+@inject IFavoriteService FavoriteService
+@inject NavigationManager Navigation
+@inject SidebarState SidebarState
+
+<nav class="arca-sidebar" aria-label="Sources and navigation">
+    <div class="arca-sidebar-brand">
+        <a href="/" class="d-flex align-items-center gap-2 text-decoration-none">
+            <i class="bi bi-archive-fill fs-4 text-primary"></i>
+            <span class="arca-sidebar-brand-text fw-semibold">ArcaFS</span>
+        </a>
+    </div>
+
+    <div class="arca-sidebar-scroll">
+        <ul class="nav flex-column arca-nav">
+            <li class="nav-item">
+                <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                    <i class="bi bi-house-door"></i> <span>Home</span>
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link" href="/search">
+                    <i class="bi bi-search"></i> <span>Search</span>
+                </NavLink>
+            </li>
+        </ul>
+
+        <div class="arca-sidebar-heading">
+            <span>Sources</span>
+        </div>
+
+        @if (sources is null)
+        {
+            <div class="px-3 py-2">
+                <span class="placeholder-glow">
+                    <span class="placeholder col-8"></span>
+                </span>
+            </div>
+        }
+        else if (sources.Count == 0)
+        {
+            <p class="px-3 small text-body-secondary mb-2">
+                No sources are available to you.
+            </p>
+        }
+        else
+        {
+            <ul class="nav flex-column arca-nav">
+                @foreach (var source in sources)
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="@($"/files/{source.Id}")"
+                                 title="@(source.Description ?? source.Name)">
+                            <i class="bi @(source.IsReadOnly ? "bi-folder" : "bi-folder-fill")"></i>
+                            <span>@source.Name</span>
+                            @if (source.IsReadOnly)
+                            {
+                                <i class="bi bi-lock-fill ms-auto small text-body-tertiary"
+                                   title="Read-only"></i>
+                            }
+                        </NavLink>
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (favorites is { Count: > 0 })
+        {
+            <div class="arca-sidebar-heading">
+                <span>Favourites</span>
+            </div>
+            <ul class="nav flex-column arca-nav">
+                @foreach (var favorite in favorites)
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link"
+                                 href="@BuildFilesUrl(favorite.SourceId, favorite.Path)"
+                                 title="@($"{favorite.SourceName}:{favorite.Path}")">
+                            <i class="bi @(favorite.IsDirectory ? "bi-star-fill" : "bi-star")"></i>
+                            <span>@favorite.Label</span>
+                        </NavLink>
+                    </li>
+                }
+            </ul>
+        }
+
+        <AuthorizeView Roles="@Constants.Roles.Administrator">
+            <div class="arca-sidebar-heading">
+                <span>Administration</span>
+            </div>
+            <ul class="nav flex-column arca-nav">
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/sources">
+                        <i class="bi bi-hdd-stack"></i> <span>Sources</span>
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/access">
+                        <i class="bi bi-shield-lock"></i> <span>Access rules</span>
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/users">
+                        <i class="bi bi-people"></i> <span>Users</span>
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/groups">
+                        <i class="bi bi-diagram-3"></i> <span>Groups</span>
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/shares">
+                        <i class="bi bi-link-45deg"></i> <span>Shares</span>
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/activity">
+                        <i class="bi bi-clock-history"></i> <span>Activity</span>
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/admin/settings">
+                        <i class="bi bi-sliders"></i> <span>Settings</span>
+                    </NavLink>
+                </li>
+                @* Both are outside the Blazor router, so they need a full navigation. *@
+                <li class="nav-item">
+                    <a class="nav-link" href="/hangfire" target="_blank" rel="noopener">
+                        <i class="bi bi-cpu"></i> <span>Jobs</span>
+                        <i class="bi bi-box-arrow-up-right ms-auto small"></i>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/sejil" target="_blank" rel="noopener">
+                        <i class="bi bi-journal-text"></i> <span>Logs</span>
+                        <i class="bi bi-box-arrow-up-right ms-auto small"></i>
+                    </a>
+                </li>
+            </ul>
+        </AuthorizeView>
+    </div>
+</nav>
+
+@code {
+    [Parameter]
+    public bool Collapsed { get; set; }
+
+    private IReadOnlyList<SourceSummaryDto>? sources;
+    private IReadOnlyList<FavoriteDto>? favorites;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Sources and favourites change from elsewhere in the app (the admin pages, the star
+        // button), and the sidebar is outside those components' render trees.
+        SidebarState.Changed += OnSidebarStateChanged;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        sources = await PermissionService.GetAccessibleSourcesAsync();
+
+        var favoritesResult = await FavoriteService.ListAsync();
+        favorites = favoritesResult.IsSuccess ? favoritesResult.Value : [];
+    }
+
+    private async void OnSidebarStateChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    private static string BuildFilesUrl(int sourceId, string path) =>
+        $"/files/{sourceId}{(path == "/" ? string.Empty : path)}";
+
+    public void Dispose() => SidebarState.Changed -= OnSidebarStateChanged;
+}

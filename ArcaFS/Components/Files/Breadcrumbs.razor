@@ -1,0 +1,40 @@
+@* Path trail. Every segment is also a drop target, so items can be moved up the tree. *@
+<nav class="arca-breadcrumb" aria-label="Path">
+    @for (int i = 0; i < Items.Count; i++)
+    {
+        var item = Items[i];
+        bool isLast = i == Items.Count - 1;
+
+        if (isLast)
+        {
+            <span class="arca-breadcrumb-current" aria-current="page">@item.Name</span>
+        }
+        else
+        {
+            <a href="@BuildUrl(item.Path)" @onclick:preventDefault
+               @onclick="() => OnNavigate.InvokeAsync(item.Path)">
+                @if (i == 0)
+                {
+                    <i class="bi bi-hdd me-1"></i>
+                }
+                @item.Name
+            </a>
+            <span class="arca-breadcrumb-sep">/</span>
+        }
+    }
+</nav>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<BreadcrumbDto> Items { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public int SourceId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnNavigate { get; set; }
+
+    // Real hrefs even though navigation is intercepted, so middle-click and "copy link" work.
+    private string BuildUrl(string path) =>
+        $"/files/{SourceId}{(path == Constants.RootPath ? string.Empty : path)}";
+}

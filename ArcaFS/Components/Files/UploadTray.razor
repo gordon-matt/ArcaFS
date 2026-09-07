@@ -1,0 +1,96 @@
+@* Progress for in-flight uploads. Sits in a corner rather than a modal so browsing continues
+   while a large transfer runs. *@
+@if (Uploads.Count > 0)
+{
+    <div class="arca-upload-tray card shadow">
+        <div class="card-header d-flex align-items-center justify-content-between py-2">
+            <span class="small fw-semibold">
+                @if (ActiveCount > 0)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    <text>Uploading @ActiveCount of @Uploads.Count</text>
+                }
+                else
+                {
+                    <text>Uploads finished</text>
+                }
+            </span>
+            <button type="button" class="btn btn-sm btn-link text-body p-0" aria-label="Dismiss"
+                    @onclick="OnDismiss">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <ul class="list-group list-group-flush" style="max-height: 16rem; overflow-y: auto;">
+            @foreach (var upload in Uploads)
+            {
+                <li class="list-group-item py-2" @key="upload.Id">
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <span class="small arca-truncate" title="@upload.FileName">@upload.FileName</span>
+                        @if (upload.Error is not null)
+                        {
+                            <i class="bi bi-exclamation-circle text-danger" title="@upload.Error"></i>
+                        }
+                        else if (upload.IsComplete)
+                        {
+                            <i class="bi bi-check-circle text-success"></i>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                                    aria-label="Cancel" @onclick="() => OnCancel.InvokeAsync(upload.Id)">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        }
+                    </div>
+
+                    @if (upload is { IsComplete: false, Error: null })
+                    {
+                        <div class="progress mt-1" style="height: 4px;">
+                            <div class="progress-bar" role="progressbar"
+                                 style="@($"width: {upload.Percent}%")"
+                                 aria-valuenow="@upload.Percent" aria-valuemin="0" aria-valuemax="100">
+                            </div>
+                        </div>
+                    }
+                    else if (upload.Error is not null)
+                    {
+                        <div class="small text-danger">@upload.Error</div>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<UploadProgress> Uploads { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<long> OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+
+    private int ActiveCount => Uploads.Count(u => !u.IsComplete && u.Error is null);
+
+    /// <summary>One file's transfer, updated from <c>uploader.js</c> via JS interop.</summary>
+    public sealed class UploadProgress
+    {
+        public required long Id { get; init; }
+
+        public required string FileName { get; init; }
+
+        public long BytesSent { get; set; }
+
+        public long TotalBytes { get; set; }
+
+        public bool IsComplete { get; set; }
+
+        public string? Error { get; set; }
+
+        public int Percent => TotalBytes <= 0
+            ? 0
+            : (int)Math.Clamp(BytesSent * 100 / TotalBytes, 0, 100);
+    }
+}

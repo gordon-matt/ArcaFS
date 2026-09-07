@@ -1,0 +1,196 @@
+@inject IShareService ShareService
+@inject NavigationManager Navigation
+@inject ToastService Toasts
+@inject IJSRuntime JS
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (shares is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (shares.Count == 0)
+{
+    <div class="arca-empty-state">
+        <i class="bi bi-link-45deg arca-empty-icon"></i>
+        <h2 class="h5">No shares yet</h2>
+        <p>Create one from a file or folder with Share in the context menu.</p>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Link</th>
+                        <th>Path</th>
+                        @if (ShowOwner)
+                        {
+                            <th>Owner</th>
+                        }
+                        <th>Mode</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var share in shares)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@(share.Title ?? share.Token[..8] + "…")</div>
+                                <div class="small text-body-secondary">@share.SourceName</div>
+                            </td>
+                            <td><code class="small">@share.Path</code></td>
+                            @if (ShowOwner)
+                            {
+                                <td>@(share.OwnerDisplayName ?? share.OwnerUserId)</td>
+                            }
+                            <td>@share.Mode</td>
+                            <td>
+                                @if (!share.IsActive)
+                                {
+                                    <span class="badge text-bg-secondary">
+                                        @(share.IsDisabled ? "Disabled" : share.IsExpired ? "Expired" : "Exhausted")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-success">Active</span>
+                                }
+                                @if (share.HasPassword)
+                                {
+                                    <span class="arca-chip ms-1">Password</span>
+                                }
+                                @if (share.ExpiresAt is DateTime expiry)
+                                {
+                                    <div class="small text-body-secondary">Until @expiry.ToLocalTime().ToString("g")</div>
+                                }
+                                @if (share.MaxDownloads is int max)
+                                {
+                                    <div class="small text-body-secondary">@share.DownloadCount / @max downloads</div>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        title="Copy link" @onclick="() => CopyAsync(share)">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                                <a class="btn btn-sm btn-outline-secondary" href="@PublicUrl(share)" target="_blank"
+                                   rel="noopener" title="Open">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-warning"
+                                        @onclick="() => ToggleDisabledAsync(share)">
+                                    <i class="bi @(share.IsDisabled ? "bi-play" : "bi-pause")"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => DeleteAsync(share)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<ConfirmDialog @ref="confirmDialog" />
+
+@code {
+    [Parameter]
+    public bool ShowOwner { get; set; }
+
+    private ConfirmDialog? confirmDialog;
+    private string? error;
+    private IReadOnlyList<ShareDto>? shares;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await ShareService.ListAsync();
+        if (result.IsSuccess)
+        {
+            shares = result.Value;
+        }
+        else
+        {
+            error = result.GetDisplayMessage();
+            shares = [];
+        }
+    }
+
+    private string PublicUrl(ShareDto share) =>
+        Navigation.ToAbsoluteUri($"/s/{share.Token}").ToString();
+
+    private async Task CopyAsync(ShareDto share)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", PublicUrl(share));
+        Toasts.Success("Link copied.");
+    }
+
+    private async Task ToggleDisabledAsync(ShareDto share)
+    {
+        var result = await ShareService.UpdateAsync(new UpdateShareRequest
+        {
+            Id = share.Id,
+            SourceId = share.SourceId,
+            Path = share.Path,
+            Title = share.Title,
+            Description = share.Description,
+            Mode = share.Mode,
+            MaxDownloads = share.MaxDownloads,
+            DisableThumbnails = share.DisableThumbnails,
+            DisableFileViewer = share.DisableFileViewer,
+            Theme = share.Theme,
+            IsDisabled = !share.IsDisabled,
+        });
+
+        if (result.IsSuccess)
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            error = result.GetDisplayMessage();
+        }
+    }
+
+    private async Task DeleteAsync(ShareDto share)
+    {
+        if (confirmDialog is null)
+        {
+            return;
+        }
+
+        if (!await confirmDialog.ShowAsync(
+                "Delete share",
+                "Anyone with this link will lose access.",
+                "Delete",
+                isDestructive: true))
+        {
+            return;
+        }
+
+        var result = await ShareService.DeleteAsync(share.Id);
+        if (result.IsSuccess)
+        {
+            Toasts.Success("Share deleted.");
+            await LoadAsync();
+        }
+        else
+        {
+            error = result.GetDisplayMessage();
+        }
+    }
+}

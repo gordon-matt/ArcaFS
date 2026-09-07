@@ -1,0 +1,229 @@
+@page "/search"
+@attribute [Authorize]
+@implements IDisposable
+
+@inject ISearchService SearchService
+@inject IPermissionService PermissionService
+@inject NavigationManager Navigation
+
+<PageTitle>Search - ArcaFS</PageTitle>
+
+<h1 class="h4 mb-3">Search</h1>
+
+<EditForm Model="this" OnValidSubmit="RunSearchAsync" class="mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md">
+            <label class="form-label" for="searchQuery">Query</label>
+            <input id="searchQuery" class="form-control" autofocus
+                   placeholder="report type:document largerThan=1M"
+                   @bind="Query" @bind:event="oninput" />
+        </div>
+        <div class="col-12 col-md-auto">
+            <label class="form-label" for="searchSource">Source</label>
+            <select id="searchSource" class="form-select" @bind="sourceId">
+                <option value="0">All sources</option>
+                @foreach (var source in sources)
+                {
+                    <option value="@source.Id">@source.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-12 col-md-auto">
+            <button type="submit" class="btn btn-primary" disabled="@isSearching">
+                @if (isSearching)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                else
+                {
+                    <i class="bi bi-search me-1"></i>
+                }
+                Search
+            </button>
+        </div>
+    </div>
+</EditForm>
+
+<details class="mb-3">
+    <summary class="small text-body-secondary">Search syntax</summary>
+    <div class="small text-body-secondary mt-2">
+        <ul class="mb-0">
+            <li><code>type:image</code> — restrict to a kind (image, video, audio, document, archive, text, code, pdf, folder)</li>
+            <li><code>largerThan=50M</code>, <code>smallerThan=1G</code> — filter by size</li>
+            <li><code>newerThan=2024-01-01</code>, <code>olderThan=2020-06-01</code> — filter by date</li>
+            <li><code>"exact phrase"</code> — match a literal substring</li>
+            <li><code>case:exact</code> — make the match case-sensitive</li>
+            <li><code>draft|final</code> — match either term</li>
+        </ul>
+    </div>
+</details>
+
+@if (results is not null)
+{
+    @if (results.Warning is not null)
+    {
+        <div class="alert alert-info py-2 small">
+            <i class="bi bi-info-circle me-2"></i>@results.Warning
+        </div>
+    }
+
+    @if (results.Items.Count == 0)
+    {
+        <p class="text-body-secondary">Nothing matched.</p>
+    }
+    else
+    {
+        <p class="small text-body-secondary">
+            @results.TotalCount @(results.TotalCount == 1 ? "result" : "results")
+        </p>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th class="d-none d-md-table-cell">Location</th>
+                        <th class="d-none d-sm-table-cell" style="width: 7rem;">Size</th>
+                        <th class="d-none d-lg-table-cell" style="width: 11rem;">Modified</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in results.Items)
+                    {
+                        <tr @key="(item.SourceId, item.Path)" style="cursor: pointer;"
+                            @onclick="() => OpenAsync(item)">
+                            <td>
+                                <div class="arca-name-cell">
+                                    <FileIcon Kind="item.Kind" CssClass="arca-item-icon" />
+                                    <span class="arca-name-text">@item.Name</span>
+                                </div>
+                            </td>
+                            <td class="d-none d-md-table-cell small text-body-secondary arca-truncate"
+                                title="@item.Path">
+                                @item.SourceName@ParentPath(item.Path)
+                            </td>
+                            <td class="d-none d-sm-table-cell arca-size">
+                                @(item.IsDirectory ? "—" : FormatBytes(item.SizeBytes))
+                            </td>
+                            <td class="d-none d-lg-table-cell arca-modified">
+                                @item.ModifiedAt.ToLocalTime().ToString("g")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (results.TotalCount > results.Items.Count)
+        {
+            <div class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="LoadMoreAsync">
+                    Show more (@results.Items.Count of @results.TotalCount)
+                </button>
+            </div>
+        }
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Query { get; set; }
+
+    [SupplyParameterFromQuery(Name = "source")]
+    public int? QuerySourceId { get; set; }
+
+    private IReadOnlyList<SourceSummaryDto> sources = [];
+    private SearchResultsDto? results;
+    private bool isSearching;
+    private int sourceId;
+    private int pageSize = 100;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+
+        sources = await PermissionService.GetAccessibleSourcesAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        sourceId = QuerySourceId ?? 0;
+
+        // Searching on arrival means a link from the topbar or an external bookmark shows
+        // results without a second click.
+        if (!string.IsNullOrWhiteSpace(Query))
+        {
+            await RunSearchAsync();
+        }
+    }
+
+    private async Task RunSearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Query))
+        {
+            results = null;
+            return;
+        }
+
+        isSearching = true;
+
+        var result = await SearchService.SearchAsync(new SearchRequest
+        {
+            Query = Query,
+            SourceId = sourceId == 0 ? null : sourceId,
+            PageSize = pageSize,
+        });
+
+        isSearching = false;
+        results = result.IsSuccess ? result.Value : null;
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        pageSize += 100;
+        await RunSearchAsync();
+    }
+
+    private Task OpenAsync(SearchResultItemDto item)
+    {
+        // Folders open in the browser; files open the folder that contains them, since that is
+        // where the actions live.
+        string target = item.IsDirectory ? item.Path : ParentPath(item.Path);
+
+        Navigation.NavigateTo(
+            $"/files/{item.SourceId}{(target == Constants.RootPath ? string.Empty : target)}");
+
+        return Task.CompletedTask;
+    }
+
+    private static string ParentPath(string path)
+    {
+        var segments = VirtualPath.GetSegments(VirtualPath.Normalize(path));
+
+        return segments.Length <= 1
+            ? Constants.RootPath
+            : VirtualPath.Combine(Constants.RootPath, segments[..^1]);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) =>
+        InvokeAsync(StateHasChanged);
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double size = bytes;
+        int unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? $"{bytes} B"
+            : $"{size.ToString(size < 10 ? "0.0" : "0", CultureInfo.InvariantCulture)} {units[unit]}";
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

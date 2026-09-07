@@ -1,0 +1,158 @@
+@page "/admin/settings"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject IServerSettingsService SettingsService
+@inject IAuthProviderService AuthProviderService
+@inject IConfiguration Configuration
+@inject ToastService Toasts
+
+<PageTitle>Settings - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Settings</h1>
+        <p class="text-body-secondary mb-0">Instance-wide options. Database and authentication are configured in appsettings or environment variables.</p>
+    </div>
+</div>
+
+@if (!loaded)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="card mb-3">
+                <div class="card-header">Appearance</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="set-name">Site name</label>
+                        <input id="set-name" class="form-control" @bind="form.SiteName" />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="set-theme">Default theme</label>
+                        <select id="set-theme" class="form-select" @bind="form.Theme">
+                            @foreach (string theme in Constants.BootswatchThemes.All)
+                            {
+                                <option value="@theme">@theme</option>
+                            }
+                        </select>
+                        <div class="form-text">
+                            Each browser can override this from the palette in the top bar.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">Features</div>
+                <div class="card-body">
+                    <div class="form-check mb-2">
+                        <input id="set-shares" class="form-check-input" type="checkbox"
+                               @bind="form.SharesEnabled" />
+                        <label class="form-check-label" for="set-shares">Allow public share links</label>
+                    </div>
+                    <div class="form-check">
+                        <input id="set-reg" class="form-check-input" type="checkbox"
+                               @bind="form.AllowRegistration" />
+                        <label class="form-check-label" for="set-reg">Allow self-registration</label>
+                    </div>
+                    <div class="form-text">
+                        Registration only applies when ASP.NET Identity is the authentication provider.
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-primary" disabled="@saving" @onclick="SaveAsync">
+                @if (saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Save settings
+            </button>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header">This instance</div>
+                <div class="card-body small">
+                    <dl class="row mb-0">
+                        <dt class="col-5">Authentication</dt>
+                        <dd class="col-7">@AuthProviderService.Provider</dd>
+                        <dt class="col-5">Database</dt>
+                        <dd class="col-7">@(Configuration["Database:Provider"] ?? "Sqlite")</dd>
+                        @if (AuthProviderService.Provider == AuthProvider.Keycloak
+                             && !string.IsNullOrWhiteSpace(AuthProviderService.KeycloakAuthority))
+                        {
+                            <dt class="col-5">Keycloak</dt>
+                            <dd class="col-7 text-break">@AuthProviderService.KeycloakAuthority</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string? error;
+    private readonly SettingsForm form = new();
+    private bool loaded;
+    private bool saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var current = await SettingsService.GetAllAsync();
+        form.SiteName = current.SiteName;
+        form.Theme = current.Theme;
+        form.SharesEnabled = current.SharesEnabled;
+        form.AllowRegistration = current.AllowRegistration;
+        loaded = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        error = null;
+
+        try
+        {
+            var result = await SettingsService.SaveAsync(new ServerSettingsDto
+            {
+                SiteName = form.SiteName,
+                Theme = form.Theme,
+                SharesEnabled = form.SharesEnabled,
+                AllowRegistration = form.AllowRegistration,
+                SetupComplete = true,
+            });
+            if (result.IsSuccess)
+            {
+                Toasts.Success("Settings saved.");
+            }
+            else
+            {
+                error = result.GetDisplayMessage();
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private sealed class SettingsForm
+    {
+        public string SiteName { get; set; } = "ArcaFS";
+        public string Theme { get; set; } = Constants.ServerSettingDefaults.Theme;
+        public bool SharesEnabled { get; set; } = true;
+        public bool AllowRegistration { get; set; }
+    }
+}

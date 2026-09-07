@@ -1,0 +1,214 @@
+@page "/admin/activity"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject IActivityService ActivityService
+@inject ISourceService SourceService
+@inject IUserInfoService UserInfoService
+
+<PageTitle>Activity - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Activity</h1>
+        <p class="text-body-secondary mb-0">Audit trail of file operations and share access.</p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label" for="act-kind">Action</label>
+                <select id="act-kind" class="form-select" @bind="kind">
+                    <option value="">All</option>
+                    @foreach (ActivityKind value in Enum.GetValues<ActivityKind>())
+                    {
+                        <option value="@value">@value.GetDisplayName()</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="act-user">User</label>
+                <select id="act-user" class="form-select" @bind="userId">
+                    <option value="">All</option>
+                    @foreach (var user in users)
+                    {
+                        <option value="@user.Id">@user.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="act-source">Source</label>
+                <select id="act-source" class="form-select" @bind="sourceId">
+                    <option value="0">All</option>
+                    @foreach (var source in sources)
+                    {
+                        <option value="@source.Id">@source.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="act-path">Path contains</label>
+                <input id="act-path" class="form-control" @bind="pathContains" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="act-from">From</label>
+                <input id="act-from" class="form-control" type="date" @bind="fromDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="act-to">To</label>
+                <input id="act-to" class="form-control" type="date" @bind="toDate" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="act-ok">Result</label>
+                <select id="act-ok" class="form-select" @bind="succeededFilter">
+                    <option value="">All</option>
+                    <option value="true">Succeeded</option>
+                    <option value="false">Failed</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-primary w-100" @onclick="SearchAsync">Filter</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (activityPage is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (activityPage.Items.Count == 0)
+{
+    <div class="arca-empty-state">
+        <i class="bi bi-clock-history arca-empty-icon"></i>
+        <h2 class="h5">No matching events</h2>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Path</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in activityPage.Items)
+                    {
+                        <tr>
+                            <td class="small text-nowrap">@item.OccurredAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <span class="badge text-bg-@item.Kind.GetBadgeClass()">
+                                    @item.Kind.GetDisplayName()
+                                </span>
+                            </td>
+                            <td>@(item.UserName ?? item.UserId ?? "—")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.SourceName))
+                                {
+                                    <div class="small text-body-secondary">@item.SourceName</div>
+                                }
+                                @if (!string.IsNullOrEmpty(item.Path))
+                                {
+                                    <code class="small">@item.Path</code>
+                                }
+                                @if (!string.IsNullOrEmpty(item.TargetPath))
+                                {
+                                    <div class="small">→ <code>@item.TargetPath</code></div>
+                                }
+                                @if (!string.IsNullOrEmpty(item.Detail))
+                                {
+                                    <div class="small text-body-secondary">@item.Detail</div>
+                                }
+                            </td>
+                            <td>
+                                @if (item.Succeeded)
+                                {
+                                    <span class="text-success"><i class="bi bi-check-circle"></i></span>
+                                }
+                                else
+                                {
+                                    <span class="text-danger"><i class="bi bi-x-circle"></i></span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (activityPage.PageCount > 1)
+        {
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        disabled="@(!activityPage.HasPreviousPage)" @onclick="() => GoToAsync(activityPage.PageNumber - 1)">
+                    Previous
+                </button>
+                <span class="small text-body-secondary">
+                    Page @activityPage.PageNumber of @activityPage.PageCount · @activityPage.TotalCount events
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        disabled="@(!activityPage.HasNextPage)" @onclick="() => GoToAsync(activityPage.PageNumber + 1)">
+                    Next
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private string? kind;
+    private string? userId;
+    private int sourceId;
+    private string? pathContains;
+    private DateTime? fromDate;
+    private DateTime? toDate;
+    private string? succeededFilter;
+    private int pageNumber = 1;
+    private PagedList<ActivityEventDto>? activityPage;
+    private IReadOnlyList<SourceDto> sources = [];
+    private IReadOnlyList<UserInfo> users = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var sourceResult = await SourceService.ListAsync();
+        sources = sourceResult.IsSuccess ? sourceResult.Value : [];
+        users = await UserInfoService.GetAllUsersAsync();
+        await SearchAsync();
+    }
+
+    private Task GoToAsync(int number)
+    {
+        pageNumber = number;
+        return SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        if (pageNumber < 1)
+        {
+            pageNumber = 1;
+        }
+
+        activityPage = await ActivityService.QueryAsync(new ActivityQueryRequest
+        {
+            Kind = Enum.TryParse<ActivityKind>(kind, out var parsedKind) ? parsedKind : null,
+            UserId = string.IsNullOrWhiteSpace(userId) ? null : userId,
+            SourceId = sourceId > 0 ? sourceId : null,
+            PathContains = string.IsNullOrWhiteSpace(pathContains) ? null : pathContains,
+            FromUtc = fromDate?.ToUniversalTime(),
+            ToUtc = toDate?.Date.AddDays(1).AddTicks(-1).ToUniversalTime(),
+            SucceededOnly = bool.TryParse(succeededFilter, out bool ok) ? ok : null,
+            PageNumber = pageNumber,
+            PageSize = 100,
+        });
+    }
+}

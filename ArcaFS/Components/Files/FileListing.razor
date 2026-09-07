@@ -1,0 +1,247 @@
+@* Renders the current directory in whichever layout is selected. Purely presentational: it
+   raises events and never touches a service, so the page keeps all the state in one place. *@
+
+@if (Items.Count == 0)
+{
+    <div class="text-center text-body-secondary py-5">
+        <i class="bi bi-folder2-open display-4 d-block mb-2"></i>
+        @if (HasFilter)
+        {
+            <p class="mb-0">Nothing matches that filter.</p>
+        }
+        else
+        {
+            <p class="mb-0">This folder is empty.</p>
+        }
+    </div>
+}
+else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact)
+{
+    <table class="table table-sm arca-list-table @(ViewMode == ListingViewMode.Compact ? "table-borderless" : null)">
+        <thead>
+            <tr>
+                <th style="width: 2.5rem;" @onclick:stopPropagation="true">
+                    <input type="checkbox" class="form-check-input" aria-label="Select all"
+                           checked="@AreAllSelected" @onchange="ToggleSelectAll" />
+                </th>
+                <th @onclick="() => OnSort.InvokeAsync(ListingSortField.Name)">
+                    Name @SortIndicator(ListingSortField.Name)
+                </th>
+                <th class="d-none d-md-table-cell" style="width: 8rem;"
+                    @onclick="() => OnSort.InvokeAsync(ListingSortField.Size)">
+                    Size @SortIndicator(ListingSortField.Size)
+                </th>
+                <th class="d-none d-lg-table-cell" style="width: 12rem;"
+                    @onclick="() => OnSort.InvokeAsync(ListingSortField.Modified)">
+                    Modified @SortIndicator(ListingSortField.Modified)
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Items)
+            {
+                <tr @key="item.Path"
+                    class="@RowClass(item)"
+                    @onclick="e => OnItemClick.InvokeAsync((item, e))"
+                    @ondblclick="() => OnItemActivate.InvokeAsync(item)"
+                    @oncontextmenu="e => OnItemContextMenu.InvokeAsync((item, e))"
+                    @oncontextmenu:preventDefault>
+                    <td @onclick:stopPropagation="true">
+                        <input type="checkbox" class="form-check-input"
+                               aria-label="@($"Select {item.Name}")"
+                               checked="@SelectedPaths.Contains(item.Path)"
+                               @onchange="() => OnToggleSelect.InvokeAsync(item)" />
+                    </td>
+                    <td>
+                        <div class="arca-name-cell">
+                            @if (ShowThumbnails && item.HasThumbnail && ViewMode == ListingViewMode.List)
+                            {
+                                <img class="arca-item-icon" loading="lazy" alt=""
+                                     src="@ThumbnailUrl(item, 48)" />
+                            }
+                            else
+                            {
+                                <FileIcon Kind="item.Kind" IsSymlink="item.IsSymlink"
+                                          CssClass="arca-item-icon" />
+                            }
+                            <span class="arca-name-text @(item.IsHidden ? "opacity-50" : null)"
+                                  title="@item.Name">@item.Name</span>
+                        </div>
+                    </td>
+                    <td class="arca-size d-none d-md-table-cell">
+                        @(item.IsDirectory
+                            ? (item.ChildCount is int count ? $"{count} items" : "—")
+                            : FormatBytes(item.SizeBytes))
+                    </td>
+                    <td class="arca-modified d-none d-lg-table-cell" title="@item.ModifiedAt.ToLocalTime().ToString("F")">
+                        @FormatRelative(item.ModifiedAt)
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <div class="arca-grid @(ViewMode == ListingViewMode.Gallery ? "gallery" : null)"
+         style="@GridSizeStyle">
+        @foreach (var item in Items)
+        {
+            <div @key="item.Path"
+                 class="arca-grid-item @(SelectedPaths.Contains(item.Path) ? "selected" : null) @(CutPaths.Contains(item.Path) ? "cut" : null)"
+                 @onclick="e => OnItemClick.InvokeAsync((item, e))"
+                 @ondblclick="() => OnItemActivate.InvokeAsync(item)"
+                 @oncontextmenu="e => OnItemContextMenu.InvokeAsync((item, e))"
+                 @oncontextmenu:preventDefault>
+                <input type="checkbox" class="form-check-input arca-grid-check"
+                       aria-label="@($"Select {item.Name}")"
+                       checked="@SelectedPaths.Contains(item.Path)"
+                       @onclick:stopPropagation="true"
+                       @onchange="() => OnToggleSelect.InvokeAsync(item)" />
+
+                @if (ShowThumbnails && item.HasThumbnail)
+                {
+                    @* loading="lazy" matters here: a folder of 3,000 photos would otherwise
+                       fire 3,000 thumbnail requests on first paint. *@
+                    <img class="arca-grid-thumb" loading="lazy" alt="@item.Name"
+                         src="@ThumbnailUrl(item, ViewMode == ListingViewMode.Gallery ? 384 : 256)" />
+                }
+                else
+                {
+                    <div class="arca-grid-icon">
+                        <FileIcon Kind="item.Kind" IsSymlink="item.IsSymlink" />
+                    </div>
+                }
+
+                @if (ViewMode != ListingViewMode.Gallery)
+                {
+                    <span class="arca-grid-label @(item.IsHidden ? "opacity-50" : null)"
+                          title="@item.Name">@item.Name</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<FileSystemItemDto> Items { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public int SourceId { get; set; }
+
+    [Parameter]
+    public ListingViewMode ViewMode { get; set; } = ListingViewMode.Normal;
+
+    [Parameter]
+    public ListingSortField SortBy { get; set; } = ListingSortField.Name;
+
+    [Parameter]
+    public bool Descending { get; set; }
+
+    [Parameter]
+    public IReadOnlySet<string> SelectedPaths { get; set; } = new HashSet<string>();
+
+    /// <summary>Paths pending a move, drawn faded like the OS convention for cut.</summary>
+    [Parameter]
+    public IReadOnlySet<string> CutPaths { get; set; } = new HashSet<string>();
+
+    [Parameter]
+    public bool ShowThumbnails { get; set; } = true;
+
+    [Parameter]
+    public bool HasFilter { get; set; }
+
+    /// <summary>Tile width in pixels, from the toolbar's size slider.</summary>
+    [Parameter]
+    public int TileSize { get; set; } = 150;
+
+    [Parameter]
+    public EventCallback<(FileSystemItemDto Item, MouseEventArgs Args)> OnItemClick { get; set; }
+
+    [Parameter]
+    public EventCallback<FileSystemItemDto> OnItemActivate { get; set; }
+
+    [Parameter]
+    public EventCallback<FileSystemItemDto> OnToggleSelect { get; set; }
+
+    [Parameter]
+    public EventCallback<(FileSystemItemDto Item, MouseEventArgs Args)> OnItemContextMenu { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnSelectAll { get; set; }
+
+    [Parameter]
+    public EventCallback<ListingSortField> OnSort { get; set; }
+
+    private bool AreAllSelected => Items.Count > 0 && Items.All(i => SelectedPaths.Contains(i.Path));
+
+    private string GridSizeStyle =>
+        ViewMode == ListingViewMode.Gallery
+            ? string.Empty
+            : $"grid-template-columns: repeat(auto-fill, minmax({TileSize}px, 1fr));";
+
+    private string RowClass(FileSystemItemDto item)
+    {
+        var classes = new List<string>(2);
+
+        if (SelectedPaths.Contains(item.Path))
+        {
+            classes.Add("selected");
+        }
+
+        if (CutPaths.Contains(item.Path))
+        {
+            classes.Add("cut");
+        }
+
+        return string.Join(' ', classes);
+    }
+
+    private Task ToggleSelectAll() => OnSelectAll.InvokeAsync(!AreAllSelected);
+
+    private RenderFragment? SortIndicator(ListingSortField field) => SortBy != field
+        ? null
+        : @<i class="bi @(Descending ? "bi-caret-down-fill" : "bi-caret-up-fill") ms-1 small"></i>;
+
+    /// <summary>
+    /// The modification ticks in the URL make each version of a file a distinct resource, which
+    /// is what lets the thumbnail endpoint send a long immutable cache header.
+    /// </summary>
+    private string ThumbnailUrl(FileSystemItemDto item, int size) =>
+        $"/api/files/thumb?sourceId={SourceId}&path={Uri.EscapeDataString(item.Path)}" +
+        $"&size={size}&v={item.ModifiedAt.Ticks}";
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double size = bytes;
+        int unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? $"{bytes} B"
+            : $"{size.ToString(size < 10 ? "0.0" : "0", CultureInfo.InvariantCulture)} {units[unit]}";
+    }
+
+    private static string FormatRelative(DateTime utc)
+    {
+        var local = utc.ToLocalTime();
+        var age = DateTime.Now - local;
+
+        return age switch
+        {
+            { TotalMinutes: < 1 } => "just now",
+            { TotalHours: < 1 } => $"{(int)age.TotalMinutes} min ago",
+            { TotalDays: < 1 } => $"{(int)age.TotalHours} h ago",
+            { TotalDays: < 7 } => $"{(int)age.TotalDays} d ago",
+            // Beyond a week a real date is more useful than "43 d ago".
+            _ => local.ToString("d MMM yyyy", CultureInfo.CurrentCulture),
+        };
+    }
+}

@@ -1,0 +1,216 @@
+@page "/edit/{SourceId:int}/{*Path}"
+@attribute [Authorize]
+@implements IAsyncDisposable
+
+@inject IFileSystemService FileSystemService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ToastService Toasts
+
+<PageTitle>@(file?.Name ?? "Editor") - ArcaFS</PageTitle>
+
+@if (loadError is not null)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>@loadError
+    </div>
+    <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">
+        <i class="bi bi-arrow-left me-1"></i> Back to folder
+    </button>
+}
+else if (file is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-column h-100">
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+
+            <h1 class="h6 mb-0 arca-truncate" title="@file.Path">
+                <FileIcon Kind="FileKind.Code" CssClass="me-1" />
+                @file.Name
+            </h1>
+
+            @if (isDirty)
+            {
+                <span class="badge text-bg-warning">Unsaved</span>
+            }
+
+            <span class="small text-body-secondary">@file.Language</span>
+
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <span class="small text-body-secondary d-none d-md-inline">
+                    @LineCount lines · @FormatBytes(content.Length)
+                </span>
+
+                @if (file.CanSave)
+                {
+                    <button type="button" class="btn btn-sm btn-primary"
+                            disabled="@(!isDirty || isSaving)" @onclick="SaveAsync">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save me-1"></i>
+                        }
+                        Save
+                    </button>
+                }
+                else
+                {
+                    <span class="badge text-bg-secondary">
+                        <i class="bi bi-eye me-1"></i>Read-only
+                    </span>
+                }
+            </div>
+        </div>
+
+        @* A plain textarea rather than a code editor component. It keeps large files fast, works
+           without JavaScript, and behaves correctly with the browser's own undo stack — which a
+           contenteditable-based highlighter would break. *@
+        <textarea class="form-control arca-editor flex-grow-1" spellcheck="false"
+                  aria-label="File contents"
+                  readonly="@(!file.CanSave)"
+                  @bind="content" @bind:event="oninput"
+                  @bind:after="() => isDirty = true"></textarea>
+    </div>
+}
+
+<ConfirmDialog @ref="confirmDialog" />
+
+@code {
+    [Parameter]
+    public int SourceId { get; set; }
+
+    [Parameter]
+    public string? Path { get; set; }
+
+    private TextFileContentDto? file;
+    private string content = string.Empty;
+    private bool isDirty;
+    private bool isSaving;
+    private string? loadError;
+    private ConfirmDialog? confirmDialog;
+    private IDisposable? navigationGuard;
+
+    private int LineCount => content.Count(c => c == '\n') + 1;
+
+    private string FolderUrl
+    {
+        get
+        {
+            string path = VirtualPath.Normalize(Path);
+            var segments = VirtualPath.GetSegments(path);
+            string parent = segments.Length <= 1
+                ? Constants.RootPath
+                : VirtualPath.Combine(Constants.RootPath, segments[..^1]);
+
+            return $"/files/{SourceId}{(parent == Constants.RootPath ? string.Empty : parent)}";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Catches in-app navigation away from unsaved work. A browser tab close can't be
+        // intercepted from here, but the common case — clicking the sidebar — can.
+        navigationGuard = Navigation.RegisterLocationChangingHandler(OnLocationChangingAsync);
+
+        var result = await FileSystemService.ReadTextAsync(SourceId, VirtualPath.Normalize(Path));
+
+        if (result.IsSuccess)
+        {
+            file = result.Value;
+            content = file.Content;
+            isDirty = false;
+
+            return;
+        }
+
+        loadError = result.Status switch
+        {
+            ResultStatus.Forbidden => "You don't have permission to open this file.",
+            ResultStatus.NotFound => "That file no longer exists.",
+            ResultStatus.Invalid => result.ValidationErrors.FirstOrDefault()?.ErrorMessage
+                ?? "That file can't be opened in the editor.",
+            _ => result.Errors.FirstOrDefault() ?? "The file could not be opened.",
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        isSaving = true;
+
+        var result = await FileSystemService.SaveTextAsync(new SaveTextFileRequest
+        {
+            SourceId = SourceId,
+            Path = file.Path,
+            Content = content,
+        });
+
+        isSaving = false;
+
+        if (result.IsSuccess)
+        {
+            isDirty = false;
+            Toasts.Success("Saved.");
+
+            return;
+        }
+
+        Toasts.Error(result.Status switch
+        {
+            ResultStatus.Forbidden => "You don't have permission to save this file.",
+            ResultStatus.NotFound => "That file no longer exists.",
+            _ => result.Errors.FirstOrDefault() ?? "The file could not be saved.",
+        });
+    }
+
+    private async ValueTask OnLocationChangingAsync(LocationChangingContext context)
+    {
+        if (!isDirty || confirmDialog is null)
+        {
+            return;
+        }
+
+        bool leave = await confirmDialog.ShowAsync(
+            "Unsaved changes",
+            "Leave without saving?",
+            "Discard changes",
+            isDestructive: true);
+
+        if (!leave)
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    private void GoBack() => Navigation.NavigateTo(FolderUrl);
+
+    private static string FormatBytes(long bytes) => bytes < 1024
+        ? $"{bytes} B"
+        : bytes < 1024 * 1024
+            ? $"{bytes / 1024.0:0.0} KB"
+            : $"{bytes / (1024.0 * 1024):0.0} MB";
+
+    public ValueTask DisposeAsync()
+    {
+        navigationGuard?.Dispose();
+
+        return ValueTask.CompletedTask;
+    }
+}

@@ -1,0 +1,106 @@
+@page "/profile"
+@attribute [Authorize]
+
+@inject IAuthProviderService AuthProviderService
+@inject IUserContextService UserContext
+@inject IUserInfoService UserInfoService
+
+<PageTitle>Profile - ArcaFS</PageTitle>
+
+<h1 class="h3 mb-3">Profile</h1>
+
+@if (user is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Name</dt>
+                        <dd class="col-sm-8">@user.Label</dd>
+                        <dt class="col-sm-4">Username</dt>
+                        <dd class="col-sm-8">@(user.UserName ?? "—")</dd>
+                        <dt class="col-sm-4">Email</dt>
+                        <dd class="col-sm-8">@(user.Email ?? "—")</dd>
+                        <dt class="col-sm-4">Roles</dt>
+                        <dd class="col-sm-8">
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var role in user.Roles)
+                                {
+                                    <span class="arca-chip">@role</span>
+                                }
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-body">
+                    @switch (AuthProviderService.Provider)
+                    {
+                        case AuthProvider.Identity:
+                            <p class="mb-2">Password and email are managed on your account page.</p>
+                            <a class="btn btn-outline-primary" href="/Identity/Account/Manage">
+                                Manage account
+                            </a>
+                            break;
+                        case AuthProvider.Keycloak:
+                            <p class="mb-0">
+                                Your account is managed in Keycloak.
+                                @if (!string.IsNullOrWhiteSpace(AuthProviderService.KeycloakAuthority))
+                                {
+                                    <a href="@AuthProviderService.KeycloakAuthority" target="_blank" rel="noopener">
+                                        Open the identity provider
+                                    </a>
+                                }
+                            </p>
+                            break;
+                        case AuthProvider.None:
+                            <p class="mb-0">
+                                This desktop build signs everyone in as a local administrator.
+                                There is no password to change.
+                            </p>
+                            break;
+                    }
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h2 class="h6">Theme</h2>
+                    <p class="small text-body-secondary mb-0">
+                        Use the palette in the top bar. The choice is stored in this browser only.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserInfo? user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        string? id = UserContext.GetCurrentUserId();
+        if (id is null)
+        {
+            return;
+        }
+
+        user = await UserInfoService.GetUserAsync(id)
+            ?? new UserInfo(
+                id,
+                UserContext.GetCurrentUserName(),
+                null,
+                UserContext.GetCurrentUserName(),
+                UserContext.GetRoleNames());
+    }
+}

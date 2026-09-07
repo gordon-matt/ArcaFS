@@ -1,0 +1,157 @@
+@inject IFileSystemService FileSystemService
+
+@* Right-hand details panel. Directory sizes are loaded on demand rather than with the listing,
+   because walking a large tree takes long enough to stall the first paint. *@
+<aside class="border-start ps-3 ms-3" style="width: 20rem; flex: 0 0 20rem; overflow-y: auto;">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <h2 class="h6 mb-0">Details</h2>
+        <button type="button" class="btn btn-sm btn-link text-body p-0" aria-label="Close details"
+                @onclick="OnClose">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    @if (Detail is null)
+    {
+        <p class="text-body-secondary small">Select an item to see its details.</p>
+    }
+    else
+    {
+        <div class="text-center mb-3">
+            @if (Detail.Kind == FileKind.Image)
+            {
+                <img class="img-fluid rounded" alt="@Detail.Name"
+                     src="@($"/api/files/thumb?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}&size=384&v={Detail.ModifiedAt.Ticks}")" />
+            }
+            else
+            {
+                <FileIcon Kind="Detail.Kind" CssClass="display-3" />
+            }
+        </div>
+
+        <h3 class="h6 text-break">@Detail.Name</h3>
+
+        <dl class="row small mb-3">
+            <dt class="col-5 text-body-secondary fw-normal">Type</dt>
+            <dd class="col-7 text-break">@Detail.MimeType</dd>
+
+            <dt class="col-5 text-body-secondary fw-normal">Size</dt>
+            <dd class="col-7">
+                @if (Detail.IsDirectory)
+                {
+                    @if (directorySize is not null)
+                    {
+                        <span>@FormatBytes(directorySize.SizeBytes)</span>
+                        <div class="text-body-secondary">
+                            @directorySize.FileCount files, @directorySize.DirectoryCount folders
+                        </div>
+                    }
+                    else if (isCalculating)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                                @onclick="CalculateSizeAsync">
+                            Calculate
+                        </button>
+                    }
+                }
+                else
+                {
+                    @FormatBytes(Detail.SizeBytes)
+                }
+            </dd>
+
+            @if (Detail is { ImageWidth: int width, ImageHeight: int height })
+            {
+                <dt class="col-5 text-body-secondary fw-normal">Dimensions</dt>
+                <dd class="col-7">@width × @height</dd>
+            }
+
+            <dt class="col-5 text-body-secondary fw-normal">Modified</dt>
+            <dd class="col-7">@Detail.ModifiedAt.ToLocalTime().ToString("g")</dd>
+
+            <dt class="col-5 text-body-secondary fw-normal">Created</dt>
+            <dd class="col-7">@Detail.CreatedAt.ToLocalTime().ToString("g")</dd>
+
+            <dt class="col-5 text-body-secondary fw-normal">Path</dt>
+            <dd class="col-7 text-break font-monospace" style="font-size: 0.75rem;">@Detail.Path</dd>
+        </dl>
+
+        <h4 class="h6">Your access</h4>
+        <div class="d-flex flex-wrap gap-1 mb-3">
+            @foreach (string permission in Detail.Permissions.ToDisplayNames())
+            {
+                <span class="arca-perm-chip arca-perm-allow">@permission</span>
+            }
+            @if (Detail.Permissions == FilePermission.None)
+            {
+                <span class="arca-perm-chip arca-perm-deny">No access</span>
+            }
+        </div>
+
+        <AuthorizeView Roles="@Constants.Roles.Administrator">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="@($"/admin/access?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}")">
+                <i class="bi bi-shield-lock me-1"></i> Access rules
+            </a>
+        </AuthorizeView>
+    }
+</aside>
+
+@code {
+    [Parameter]
+    public FileDetailDto? Detail { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private DirectorySizeDto? directorySize;
+    private bool isCalculating;
+    private string? lastLoadedPath;
+
+    protected override void OnParametersSet()
+    {
+        // A stale size from the previously selected folder would be actively misleading.
+        if (Detail?.Path != lastLoadedPath)
+        {
+            lastLoadedPath = Detail?.Path;
+            directorySize = null;
+            isCalculating = false;
+        }
+    }
+
+    private async Task CalculateSizeAsync()
+    {
+        if (Detail is null)
+        {
+            return;
+        }
+
+        isCalculating = true;
+
+        var result = await FileSystemService.GetDirectorySizeAsync(Detail.SourceId, Detail.Path);
+
+        directorySize = result.IsSuccess ? result.Value : null;
+        isCalculating = false;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double size = bytes;
+        int unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? $"{bytes} B"
+            : $"{size.ToString(size < 10 ? "0.0" : "0", CultureInfo.InvariantCulture)} {units[unit]}";
+    }
+}

@@ -1,0 +1,18 @@
+@page "/admin/shares"
+@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+
+@inject IShareService ShareService
+@inject NavigationManager Navigation
+@inject ToastService Toasts
+@inject IJSRuntime JS
+
+<PageTitle>Shares - ArcaFS</PageTitle>
+
+<div class="arca-page-header">
+    <div>
+        <h1 class="h3 mb-1">Shares</h1>
+        <p class="text-body-secondary mb-0">Every public link on this server.</p>
+    </div>
+</div>
+
+<ShareList ShowOwner="true" />

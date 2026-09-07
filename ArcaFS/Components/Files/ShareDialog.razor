@@ -1,0 +1,240 @@
+@inject IShareService ShareService
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject ToastService Toasts
+
+@* Creates a public link for a path, then shows the resulting URL for copying. *@
+@if (isVisible)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5">
+                        <i class="bi bi-link-45deg me-1"></i> Share
+                    </h2>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="Close"></button>
+                </div>
+
+                @if (created is null)
+                {
+                    <EditForm Model="model" OnValidSubmit="CreateAsync">
+                        <div class="modal-body">
+                            <p class="small text-body-secondary">
+                                Anyone with the link can reach
+                                <code class="text-break">@path</code>.
+                            </p>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="shareTitle">Title (optional)</label>
+                                <input id="shareTitle" class="form-control" @bind="model.Title" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="shareMode">Recipients may</label>
+                                <select id="shareMode" class="form-select" @bind="model.Mode">
+                                    <option value="@ShareMode.ReadOnly">View and download</option>
+                                    <option value="@ShareMode.Upload">View, download and upload</option>
+                                    <option value="@ShareMode.ReadWrite">Manage files</option>
+                                </select>
+                                <div class="form-text">
+                                    @* The share can never exceed what its creator can do at the
+                                       path, so this is a ceiling rather than a grant. *@
+                                    A share can never permit more than you can do here yourself.
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label" for="sharePassword">Password (optional)</label>
+                                <input id="sharePassword" type="password" class="form-control"
+                                       autocomplete="new-password" @bind="model.Password" />
+                            </div>
+
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label" for="shareExpiry">Expires</label>
+                                    <select id="shareExpiry" class="form-select" @bind="model.ExpiryChoice">
+                                        <option value="never">Never</option>
+                                        <option value="1h">In 1 hour</option>
+                                        <option value="1d">In 1 day</option>
+                                        <option value="7d">In 7 days</option>
+                                        <option value="30d">In 30 days</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label" for="shareMaxDownloads">Download limit</label>
+                                    <input id="shareMaxDownloads" type="number" min="1"
+                                           class="form-control" placeholder="Unlimited"
+                                           @bind="model.MaxDownloads" />
+                                </div>
+                            </div>
+
+                            <div class="form-check mt-3">
+                                <input id="shareNoThumbs" type="checkbox" class="form-check-input"
+                                       @bind="model.DisableThumbnails" />
+                                <label class="form-check-label" for="shareNoThumbs">
+                                    Don't generate thumbnails
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input id="shareNoViewer" type="checkbox" class="form-check-input"
+                                       @bind="model.DisableFileViewer" />
+                                <label class="form-check-label" for="shareNoViewer">
+                                    Download only, no in-browser preview
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="Close">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Create link
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    <div class="modal-body">
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>The link is ready.
+                        </div>
+
+                        <label class="form-label" for="shareUrl">Link</label>
+                        <div class="input-group">
+                            <input id="shareUrl" class="form-control font-monospace" readonly
+                                   value="@ShareUrl" />
+                            <button type="button" class="btn btn-outline-secondary"
+                                    @onclick="CopyLinkAsync">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+
+                        @if (created.ExpiresAt is DateTime expires)
+                        {
+                            <p class="small text-body-secondary mt-2 mb-0">
+                                Expires @expires.ToLocalTime().ToString("g").
+                            </p>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <a class="btn btn-outline-secondary" href="/shares">Manage shares</a>
+                        <button type="button" class="btn btn-primary" @onclick="Close">Done</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private bool isVisible;
+    private bool isSaving;
+    private int sourceId;
+    private string path = string.Empty;
+    private ShareDto? created;
+    private ShareFormModel model = new();
+
+    private string ShareUrl => created is null
+        ? string.Empty
+        : $"{Navigation.BaseUri.TrimEnd('/')}/s/{created.Token}";
+
+    public Task ShowAsync(int sourceId, string path)
+    {
+        this.sourceId = sourceId;
+        this.path = path;
+
+        model = new ShareFormModel();
+        created = null;
+        isVisible = true;
+
+        StateHasChanged();
+
+        return Task.CompletedTask;
+    }
+
+    private async Task CreateAsync()
+    {
+        isSaving = true;
+
+        var result = await ShareService.CreateAsync(new CreateShareRequest
+        {
+            SourceId = sourceId,
+            Path = path,
+            Title = string.IsNullOrWhiteSpace(model.Title) ? null : model.Title.Trim(),
+            Mode = model.Mode,
+            Password = string.IsNullOrWhiteSpace(model.Password) ? null : model.Password,
+            ExpiresIn = model.ExpiryChoice switch
+            {
+                "1h" => TimeSpan.FromHours(1),
+                "1d" => TimeSpan.FromDays(1),
+                "7d" => TimeSpan.FromDays(7),
+                "30d" => TimeSpan.FromDays(30),
+                _ => null,
+            },
+            MaxDownloads = model.MaxDownloads,
+            DisableThumbnails = model.DisableThumbnails,
+            DisableFileViewer = model.DisableFileViewer,
+        });
+
+        isSaving = false;
+
+        if (result.IsSuccess)
+        {
+            created = result.Value;
+            return;
+        }
+
+        Toasts.Error(result.Status switch
+        {
+            ResultStatus.Forbidden => "You don't have permission to share this path.",
+            ResultStatus.Invalid => string.Join(" ", result.ValidationErrors.Select(e => e.ErrorMessage)),
+            _ => result.Errors.FirstOrDefault() ?? "The share could not be created.",
+        });
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        bool copied = await JS.InvokeAsync<bool>("arcafs.copyToClipboard", ShareUrl);
+
+        if (copied)
+        {
+            Toasts.Success("Link copied.");
+        }
+        else
+        {
+            // Clipboard access is blocked outside a secure context, which is easy to hit on a
+            // plain-HTTP LAN deployment.
+            Toasts.Warning("Couldn't copy automatically — select the link and copy it.");
+        }
+    }
+
+    private void Close()
+    {
+        isVisible = false;
+        created = null;
+    }
+
+    private sealed class ShareFormModel
+    {
+        public string? Title { get; set; }
+
+        public ShareMode Mode { get; set; } = ShareMode.ReadOnly;
+
+        public string? Password { get; set; }
+
+        public string ExpiryChoice { get; set; } = "never";
+
+        public int? MaxDownloads { get; set; }
+
+        public bool DisableThumbnails { get; set; }
+
+        public bool DisableFileViewer { get; set; }
+    }
+}

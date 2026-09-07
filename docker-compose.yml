@@ -1,0 +1,91 @@
+# ArcaFS — multi-container setup.
+# Run from repo root: docker compose up -d
+# App: http://localhost:8080
+#
+# Environment variables use the .NET configuration convention: each JSON level in appsettings
+# is separated by a double underscore (e.g. Database:Provider -> Database__Provider).
+#
+# A `.env` file at the repo root can override any ${VAR} placeholders — see .env.example.
+#
+# Defaults below run the web app against PostgreSQL with built-in ASP.NET Identity. To switch
+# the database to SQLite, set Database__Provider=Sqlite and point
+# ConnectionStrings__DefaultConnection at a file under a mounted volume
+# (e.g. /app/data/db/arcafs.db), and remove the db service if you do not need Postgres.
+# To use Keycloak, set Authentication__Provider=Keycloak, fill in Authentication__Keycloak__*,
+# and uncomment the keycloak service at the bottom of this file.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ArcaFS/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      Database__Provider: Npgsql
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=arcafs;Username=postgres;Password=${POSTGRES_PASSWORD:-postgres}"
+      Authentication__Provider: Identity
+      Seed__Admin__Email: "admin@arcafs.local"
+      Seed__Admin__Password: "${ADMIN_PASSWORD:-Admin123!}"
+      Thumbnails__CacheDirectory: /app/data/thumbnails
+
+      # ── Keycloak (optional) ──────────────────────────────────────────────────
+      # Set Authentication__Provider to "Keycloak" and fill in Authority + ClientSecret
+      # to enable Keycloak authentication.
+      #
+      # Authentication__Provider: Keycloak
+      # Authentication__Keycloak__Authority: http://host.docker.internal:8081/realms/home
+      # Authentication__Keycloak__ClientId: arcafs
+      # Authentication__Keycloak__ClientSecret:
+      # Authentication__Keycloak__PublicOrigin: ""
+      # Authentication__Keycloak__BackchannelBaseUrl: ""
+
+    volumes:
+      # Mount the folders you want to browse. Add more sources in the admin UI after first run.
+      - ${ARCAFS_FILES:-./data/files}:/app/data/files
+      - ${ARCAFS_LOGS:-./data/logs}:/app/data/logs
+      - ${ARCAFS_THUMBS:-./data/thumbnails}:/app/data/thumbnails
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_DB: arcafs
+    volumes:
+      - arcafs-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Keycloak (optional) ──────────────────────────────────────────────────────
+  # Uncomment to run Keycloak alongside the app. Set Authentication__Provider=Keycloak on `app`
+  # and fill in Authentication__Keycloak__* environment variables.
+  #
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:26.5.5
+  #   container_name: keycloak
+  #   ports:
+  #     - "8081:8080"
+  #   environment:
+  #     KC_BOOTSTRAP_ADMIN_USERNAME: admin
+  #     KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+  #     KC_DB: postgres
+  #     KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+  #     KC_DB_USERNAME: postgres
+  #     KC_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+  #   command: start-dev
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+volumes:
+  arcafs-pgdata:

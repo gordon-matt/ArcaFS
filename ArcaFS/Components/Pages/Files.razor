@@ -1,0 +1,1255 @@
+@page "/files/{SourceId:int}"
+@page "/files/{SourceId:int}/{*Path}"
+@attribute [Authorize]
+@implements IAsyncDisposable
+
+@inject IFileSystemService FileSystemService
+@inject IArchiveService ArchiveService
+@inject IFavoriteService FavoriteService
+@inject IShareService ShareService
+@inject IPermissionService PermissionService
+@inject IUserContextService UserContext
+@inject DownloadTicketService DownloadTickets
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ToastService Toasts
+@inject SidebarState SidebarState
+
+<PageTitle>@(listing?.Path == Constants.RootPath ? listing?.SourceName : CurrentFolderName) - ArcaFS</PageTitle>
+
+<div class="d-flex flex-column h-100">
+    @* ------------------------------------------------------------------- toolbar *@
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+        @if (listing is not null)
+        {
+            <Breadcrumbs Items="listing.Breadcrumbs" SourceId="SourceId" OnNavigate="NavigateToAsync" />
+        }
+
+        <div class="ms-auto d-flex align-items-center gap-1">
+            @if (selection.Count > 0)
+            {
+                <span class="badge text-bg-primary">@selection.Count selected</span>
+
+                @if (Can(FilePermission.Download))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Download"
+                            @onclick="() => HandleActionAsync(FileAction.Download)">
+                        <i class="bi bi-download"></i>
+                    </button>
+                }
+                @if (Can(FilePermission.Move))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Cut"
+                            @onclick="() => HandleActionAsync(FileAction.Cut)">
+                        <i class="bi bi-scissors"></i>
+                    </button>
+                }
+                @if (Can(FilePermission.Download))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy"
+                            @onclick="() => HandleActionAsync(FileAction.Copy)">
+                        <i class="bi bi-files"></i>
+                    </button>
+                }
+                @if (Can(FilePermission.Delete))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                            @onclick="() => HandleActionAsync(FileAction.Delete)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                }
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Clear selection"
+                        @onclick="() => HandleActionAsync(FileAction.ClearSelection)">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+
+                <div class="vr mx-1"></div>
+            }
+
+            @if (clipboard is not null && Can(FilePermission.Create))
+            {
+                <button type="button" class="btn btn-sm btn-primary"
+                        @onclick="() => HandleActionAsync(FileAction.Paste)">
+                    <i class="bi bi-clipboard me-1"></i>
+                    Paste @clipboard.Paths.Count
+                </button>
+                <div class="vr mx-1"></div>
+            }
+
+            @if (Can(FilePermission.Create))
+            {
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-plus-lg me-1"></i> New
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <button class="dropdown-item"
+                                    @onclick="() => HandleActionAsync(FileAction.NewFolder)">
+                                <i class="bi bi-folder-plus me-2"></i> Folder
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item"
+                                    @onclick="() => HandleActionAsync(FileAction.NewFile)">
+                                <i class="bi bi-file-earmark-plus me-2"></i> Text file
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li>
+                            <button class="dropdown-item"
+                                    @onclick="() => HandleActionAsync(FileAction.Upload)">
+                                <i class="bi bi-upload me-2"></i> Upload files…
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item"
+                                    @onclick="() => HandleActionAsync(FileAction.UploadFolder)">
+                                <i class="bi bi-folder-symlink me-2"></i> Upload folder…
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            }
+
+            <div class="input-group input-group-sm" style="width: 11rem;">
+                <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+                <input type="search" class="form-control" placeholder="Filter"
+                       aria-label="Filter this folder"
+                       @bind="filter" @bind:event="oninput" @bind:after="ApplyFilterAsync" />
+            </div>
+
+            <div class="btn-group btn-group-sm" role="group" aria-label="View mode">
+                @foreach (var mode in ViewModes)
+                {
+                    <button type="button" title="@mode.Label"
+                            class="btn @(viewMode == mode.Mode ? "btn-secondary" : "btn-outline-secondary")"
+                            @onclick="() => SetViewModeAsync(mode.Mode)">
+                        <i class="bi @mode.Icon"></i>
+                    </button>
+                }
+            </div>
+
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" title="Sort and options">
+                    <i class="bi bi-sliders"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">Sort by</h6></li>
+                    @foreach (var field in Enum.GetValues<ListingSortField>())
+                    {
+                        <li>
+                            <button class="dropdown-item" @onclick="() => SortByAsync(field)">
+                                <i class="bi @(sortBy == field ? (descending ? "bi-sort-down" : "bi-sort-up") : "bi-dash") me-2"></i>
+                                @field
+                            </button>
+                        </li>
+                    }
+                    <li><hr class="dropdown-divider" /></li>
+                    <li>
+                        <button class="dropdown-item" @onclick="ToggleHiddenAsync">
+                            <i class="bi @(showHidden ? "bi-check-square" : "bi-square") me-2"></i>
+                            Show hidden files
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-item" @onclick="() => showInfoPanel = !showInfoPanel">
+                            <i class="bi @(showInfoPanel ? "bi-check-square" : "bi-square") me-2"></i>
+                            Details panel
+                        </button>
+                    </li>
+                    <li><hr class="dropdown-divider" /></li>
+                    <li>
+                        <button class="dropdown-item" @onclick="() => HandleActionAsync(FileAction.Refresh)">
+                            <i class="bi bi-arrow-clockwise me-2"></i> Refresh
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    @* ------------------------------------------------------------------- content *@
+    @if (loadError is not null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>@loadError
+        </div>
+    }
+    else if (listing is null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-grow-1 overflow-hidden">
+            <div class="flex-grow-1 overflow-auto arca-listing" @ref="listingElement"
+                 @onclick="ClearSelectionOnBackgroundClick"
+                 @oncontextmenu="ShowBackgroundContextMenu"
+                 @oncontextmenu:preventDefault>
+                <FileListing Items="listing.Items"
+                             SourceId="SourceId"
+                             ViewMode="viewMode"
+                             SortBy="sortBy"
+                             Descending="descending"
+                             SelectedPaths="selection"
+                             CutPaths="CutPaths"
+                             ShowThumbnails="viewMode is not ListingViewMode.Compact"
+                             HasFilter="@(!string.IsNullOrWhiteSpace(filter))"
+                             TileSize="tileSize"
+                             OnItemClick="HandleItemClickAsync"
+                             OnItemActivate="ActivateAsync"
+                             OnToggleSelect="ToggleSelect"
+                             OnItemContextMenu="ShowItemContextMenu"
+                             OnSelectAll="SelectAll"
+                             OnSort="SortByAsync" />
+
+                @if (listing.TotalCount > listing.Items.Count)
+                {
+                    <div class="text-center py-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                @onclick="LoadMoreAsync">
+                            Show more (@listing.Items.Count of @listing.TotalCount)
+                        </button>
+                    </div>
+                }
+            </div>
+
+            @if (showInfoPanel)
+            {
+                <InfoPanel Detail="selectedDetail" OnClose="() => showInfoPanel = false" />
+            }
+        </div>
+
+        <div class="d-flex align-items-center gap-3 border-top pt-2 mt-2 small text-body-secondary">
+            <span>@listing.TotalCount items</span>
+            <span>@FormatBytes(listing.TotalSizeBytes)</span>
+            @if (listing.IsSourceReadOnly)
+            {
+                <span class="badge text-bg-secondary">
+                    <i class="bi bi-lock-fill me-1"></i>Read-only
+                </span>
+            }
+            <span class="ms-auto d-none d-md-inline">
+                @listing.Permissions.ToDisplayList()
+            </span>
+        </div>
+    }
+</div>
+
+<FileContextMenu IsVisible="contextMenuVisible"
+                 X="contextMenuX"
+                 Y="contextMenuY"
+                 Item="contextMenuItem"
+                 SelectionCount="selection.Count"
+                 Permissions="EffectivePermissionsForContextMenu"
+                 HasClipboard="clipboard is not null"
+                 IsFavorite="isCurrentFavorite"
+                 CanShare="canCreateShares"
+                 CanManageAccess="canManageAccess"
+                 OnAction="HandleActionAsync"
+                 OnClose="() => contextMenuVisible = false" />
+
+<PreviewModal SourceId="SourceId"
+              Items="PreviewableItems"
+              Current="previewItem"
+              OnNavigate="item => { previewItem = item; return Task.CompletedTask; }"
+              OnClose="() => previewItem = null" />
+
+<UploadTray Uploads="uploads" OnCancel="CancelUploadAsync" OnDismiss="() => uploads.Clear()" />
+
+<ConfirmDialog @ref="confirmDialog" />
+<PromptDialog @ref="promptDialog" />
+<ShareDialog @ref="shareDialog" />
+
+@code {
+    [Parameter]
+    public int SourceId { get; set; }
+
+    [Parameter]
+    public string? Path { get; set; }
+
+    private DirectoryListingDto? listing;
+    private string? loadError;
+
+    private readonly HashSet<string> selection = new(StringComparer.Ordinal);
+
+    /// <summary>Anchor for shift-click range selection.</summary>
+    private string? rangeAnchorPath;
+
+    private ListingViewMode viewMode = ListingViewMode.Normal;
+    private int tileSize = 150;
+    private ListingSortField sortBy = ListingSortField.Name;
+    private bool descending;
+    private bool showHidden;
+    private string filter = string.Empty;
+    private int pageSize = 500;
+
+    private bool showInfoPanel;
+    private FileDetailDto? selectedDetail;
+
+    private Clipboard? clipboard;
+    private FileSystemItemDto? previewItem;
+
+    private bool contextMenuVisible;
+    private double contextMenuX;
+    private double contextMenuY;
+    private FileSystemItemDto? contextMenuItem;
+
+    private bool isCurrentFavorite;
+    private bool canCreateShares;
+    private bool canManageAccess;
+
+    private readonly List<UploadTray.UploadProgress> uploads = [];
+
+    private ElementReference listingElement;
+    private DotNetObjectReference<Files>? dotNetRef;
+    private string InteropKey => $"files-{SourceId}";
+
+    private ConfirmDialog? confirmDialog;
+    private PromptDialog? promptDialog;
+    private ShareDialog? shareDialog;
+
+    private string CurrentPath => VirtualPath.Normalize(Path);
+
+    private string CurrentFolderName =>
+        listing?.Breadcrumbs.LastOrDefault()?.Name ?? listing?.SourceName ?? "Files";
+
+    private IReadOnlySet<string> CutPaths =>
+        clipboard is { IsCut: true, SourceId: var id } && id == SourceId
+            ? clipboard.Paths
+            : EmptyPaths;
+
+    private static readonly HashSet<string> EmptyPaths = [];
+
+    /// <summary>
+    /// Items the preview modal can page through. Restricted to media so arrowing along doesn't
+    /// stop on a spreadsheet with nothing to show.
+    /// </summary>
+    private IReadOnlyList<FileSystemItemDto> PreviewableItems =>
+        listing?.Items
+            .Where(i => i.Kind is FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf)
+            .ToList() ?? [];
+
+    private static readonly (ListingViewMode Mode, string Icon, string Label)[] ViewModes =
+    [
+        (ListingViewMode.Normal, "bi-grid", "Tiles"),
+        (ListingViewMode.List, "bi-list-ul", "List"),
+        (ListingViewMode.Compact, "bi-text-left", "Compact"),
+        (ListingViewMode.Gallery, "bi-images", "Gallery"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var permissions = await PermissionService.GetPermissionsAsync(SourceId, Constants.RootPath);
+        canCreateShares = permissions.HasAny(FilePermission.Share);
+        canManageAccess = UserContext.IsAdministrator();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Navigating between folders reuses the component, so per-folder state has to be reset
+        // explicitly or a selection would follow the user into the next directory.
+        selection.Clear();
+        rangeAnchorPath = null;
+        selectedDetail = null;
+        previewItem = null;
+        contextMenuVisible = false;
+
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        dotNetRef = DotNetObjectReference.Create(this);
+
+        string storedMode = await JS.InvokeAsync<string>("arcafs.getStoredViewMode");
+
+        if (Enum.TryParse(storedMode, ignoreCase: true, out ListingViewMode parsed))
+        {
+            viewMode = parsed;
+            StateHasChanged();
+        }
+
+        await JS.InvokeVoidAsync("arcafs.registerFileKeys", InteropKey, dotNetRef);
+        await JS.InvokeVoidAsync(
+            "arcafsUploader.registerDropZone", InteropKey, listingElement, dotNetRef);
+    }
+
+    private async Task LoadAsync()
+    {
+        loadError = null;
+
+        var result = await FileSystemService.ListAsync(new ListingRequest
+        {
+            SourceId = SourceId,
+            Path = CurrentPath,
+            SortBy = sortBy,
+            Descending = descending,
+            ShowHidden = showHidden,
+            Filter = string.IsNullOrWhiteSpace(filter) ? null : filter,
+            PageSize = pageSize,
+        });
+
+        if (result.IsSuccess)
+        {
+            listing = result.Value;
+            await RefreshFavoriteStateAsync();
+
+            return;
+        }
+
+        listing = null;
+        loadError = result.Status switch
+        {
+            ResultStatus.Forbidden => "You don't have permission to view this folder.",
+            ResultStatus.NotFound => "That folder no longer exists.",
+            _ => result.Errors.FirstOrDefault() ?? "The folder could not be opened.",
+        };
+    }
+
+    private async Task RefreshFavoriteStateAsync()
+    {
+        var favorites = await FavoriteService.ListAsync();
+
+        isCurrentFavorite = favorites.IsSuccess
+            && favorites.Value.Any(f => f.SourceId == SourceId && f.Path == CurrentPath);
+    }
+
+    // ------------------------------------------------------------------ navigation
+
+    private Task NavigateToAsync(string path)
+    {
+        Navigation.NavigateTo(
+            $"/files/{SourceId}{(path == Constants.RootPath ? string.Empty : path)}");
+
+        return Task.CompletedTask;
+    }
+
+    private void OpenAccessEditor()
+    {
+        string path = contextMenuItem?.IsDirectory == true
+            ? contextMenuItem.Path
+            : CurrentPath;
+
+        Navigation.NavigateTo(
+            $"/admin/access?sourceId={SourceId}&path={Uri.EscapeDataString(path)}");
+    }
+
+    private async Task ActivateAsync(FileSystemItemDto item)
+    {
+        if (item.IsDirectory)
+        {
+            await NavigateToAsync(item.Path);
+            return;
+        }
+
+        switch (item.Kind)
+        {
+            case FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf:
+                previewItem = item;
+                break;
+
+            case FileKind.Text or FileKind.Code:
+                Navigation.NavigateTo($"/edit/{SourceId}{item.Path}");
+                break;
+
+            default:
+                // Nothing to render in-app, so hand it to the browser.
+                await JS.InvokeVoidAsync("arcafs.downloadUrl", DownloadUrl([item.Path]));
+                break;
+        }
+    }
+
+    // ------------------------------------------------------------------- selection
+
+    private async Task HandleItemClickAsync((FileSystemItemDto Item, MouseEventArgs Args) e)
+    {
+        var (item, args) = e;
+
+        if (args.ShiftKey && rangeAnchorPath is not null && listing is not null)
+        {
+            SelectRange(rangeAnchorPath, item.Path);
+        }
+        else if (args.CtrlKey || args.MetaKey)
+        {
+            ToggleSelect(item);
+            rangeAnchorPath = item.Path;
+        }
+        else
+        {
+            selection.Clear();
+            selection.Add(item.Path);
+            rangeAnchorPath = item.Path;
+        }
+
+        await LoadSelectedDetailAsync();
+    }
+
+    /// <summary>Selects everything between two paths in display order, as Explorer does.</summary>
+    private void SelectRange(string fromPath, string toPath)
+    {
+        if (listing is null)
+        {
+            return;
+        }
+
+        var paths = listing.Items.Select(i => i.Path).ToList();
+        int from = paths.IndexOf(fromPath);
+        int to = paths.IndexOf(toPath);
+
+        if (from < 0 || to < 0)
+        {
+            return;
+        }
+
+        selection.Clear();
+
+        foreach (string path in paths.GetRange(Math.Min(from, to), Math.Abs(to - from) + 1))
+        {
+            selection.Add(path);
+        }
+    }
+
+    private void ToggleSelect(FileSystemItemDto item)
+    {
+        if (!selection.Remove(item.Path))
+        {
+            selection.Add(item.Path);
+        }
+    }
+
+    private void SelectAll(bool select)
+    {
+        selection.Clear();
+
+        if (select && listing is not null)
+        {
+            foreach (var item in listing.Items)
+            {
+                selection.Add(item.Path);
+            }
+        }
+    }
+
+    private void ClearSelectionOnBackgroundClick()
+    {
+        // Only fires for clicks that reached the container, so clicking an item doesn't clear it.
+        selection.Clear();
+        rangeAnchorPath = null;
+        selectedDetail = null;
+    }
+
+    private async Task LoadSelectedDetailAsync()
+    {
+        if (!showInfoPanel || selection.Count != 1)
+        {
+            selectedDetail = null;
+            return;
+        }
+
+        var result = await FileSystemService.GetDetailAsync(SourceId, selection.First());
+        selectedDetail = result.IsSuccess ? result.Value : null;
+    }
+
+    // ---------------------------------------------------------------- view options
+
+    private async Task SetViewModeAsync(ListingViewMode mode)
+    {
+        viewMode = mode;
+        await JS.InvokeVoidAsync("arcafs.setStoredViewMode", mode.ToString());
+    }
+
+    private async Task SortByAsync(ListingSortField field)
+    {
+        // Clicking the active column flips direction, which is what a column header implies.
+        if (sortBy == field)
+        {
+            descending = !descending;
+        }
+        else
+        {
+            sortBy = field;
+            descending = false;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task ToggleHiddenAsync()
+    {
+        showHidden = !showHidden;
+        await LoadAsync();
+    }
+
+    private async Task ApplyFilterAsync() => await LoadAsync();
+
+    private async Task LoadMoreAsync()
+    {
+        pageSize += 500;
+        await LoadAsync();
+    }
+
+    // ----------------------------------------------------------------- context menu
+
+    private void ShowItemContextMenu((FileSystemItemDto Item, MouseEventArgs Args) e)
+    {
+        // Right-clicking outside the selection replaces it, matching every file manager: the
+        // menu must act on what the user just pointed at.
+        if (!selection.Contains(e.Item.Path))
+        {
+            selection.Clear();
+            selection.Add(e.Item.Path);
+            rangeAnchorPath = e.Item.Path;
+        }
+
+        contextMenuItem = e.Item;
+        contextMenuX = e.Args.ClientX;
+        contextMenuY = e.Args.ClientY;
+        contextMenuVisible = true;
+    }
+
+    private void ShowBackgroundContextMenu(MouseEventArgs args)
+    {
+        selection.Clear();
+        contextMenuItem = null;
+        contextMenuX = args.ClientX;
+        contextMenuY = args.ClientY;
+        contextMenuVisible = true;
+    }
+
+    private FilePermission EffectivePermissionsForContextMenu =>
+        listing?.Permissions ?? FilePermission.None;
+
+    private bool Can(FilePermission permission) =>
+        listing?.Permissions.HasAny(permission) == true;
+
+    // ---------------------------------------------------------------------- actions
+
+    private async Task HandleActionAsync(FileAction action)
+    {
+        switch (action)
+        {
+            case FileAction.Open when contextMenuItem is not null:
+                await ActivateAsync(contextMenuItem);
+                break;
+
+            case FileAction.Preview when contextMenuItem is not null:
+                previewItem = contextMenuItem;
+                break;
+
+            case FileAction.Edit when contextMenuItem is not null:
+                Navigation.NavigateTo($"/edit/{SourceId}{contextMenuItem.Path}");
+                break;
+
+            case FileAction.Download:
+                await DownloadSelectionAsync();
+                break;
+
+            case FileAction.Rename:
+                await RenameAsync();
+                break;
+
+            case FileAction.Copy:
+                SetClipboard(isCut: false);
+                break;
+
+            case FileAction.Cut:
+                SetClipboard(isCut: true);
+                break;
+
+            case FileAction.Paste:
+                await PasteAsync();
+                break;
+
+            case FileAction.Delete:
+                await DeleteAsync();
+                break;
+
+            case FileAction.Compress:
+                await CompressAsync();
+                break;
+
+            case FileAction.Extract when contextMenuItem is not null:
+                await ExtractAsync(contextMenuItem);
+                break;
+
+            case FileAction.Share:
+                await ShareAsync();
+                break;
+
+            case FileAction.ToggleFavorite:
+                await ToggleFavoriteAsync();
+                break;
+
+            case FileAction.Info:
+                showInfoPanel = true;
+                await LoadSelectedDetailAsync();
+                break;
+
+            case FileAction.ManageAccess:
+                OpenAccessEditor();
+                break;
+
+            case FileAction.NewFolder:
+                await CreateFolderAsync();
+                break;
+
+            case FileAction.NewFile:
+                await CreateTextFileAsync();
+                break;
+
+            case FileAction.Upload:
+                await JS.InvokeVoidAsync("arcafsUploader.pickFiles", dotNetRef, false);
+                break;
+
+            case FileAction.UploadFolder:
+                await JS.InvokeVoidAsync("arcafsUploader.pickFiles", dotNetRef, true);
+                break;
+
+            case FileAction.SelectAll:
+                SelectAll(true);
+                break;
+
+            case FileAction.ClearSelection:
+                selection.Clear();
+                selectedDetail = null;
+                break;
+
+            case FileAction.Refresh:
+                await LoadAsync();
+                break;
+        }
+    }
+
+    private async Task DownloadSelectionAsync()
+    {
+        var paths = selection.Count > 0
+            ? selection.ToList()
+            : contextMenuItem is null ? [] : [contextMenuItem.Path];
+
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
+        // A single file streams directly; anything else is zipped, because the browser gives no
+        // way to save several files from one click.
+        if (paths.Count == 1
+            && listing?.Items.FirstOrDefault(i => i.Path == paths[0]) is { IsDirectory: false })
+        {
+            await JS.InvokeVoidAsync("arcafs.downloadUrl", DownloadUrl(paths));
+            return;
+        }
+
+        // The selection goes through a ticket rather than the URL, so a folder of thousands of
+        // files is downloadable and the browser still streams the zip straight to disk.
+        string token = DownloadTickets.Create(
+            DownloadTicketService.UserOwner(UserContext.GetCurrentUserId()),
+            SourceId,
+            paths,
+            ZipFileName(paths));
+
+        await JS.InvokeVoidAsync("arcafs.downloadUrl", $"/api/files/zip/{token}");
+    }
+
+    private string DownloadUrl(IReadOnlyList<string> paths) =>
+        $"/api/files/download?sourceId={SourceId}&path={Uri.EscapeDataString(paths[0])}";
+
+    private string ZipFileName(IReadOnlyList<string> paths) => paths.Count == 1
+        ? $"{System.IO.Path.GetFileName(paths[0].TrimEnd('/'))}.zip"
+        : $"{CurrentFolderName}.zip";
+
+    private async Task RenameAsync()
+    {
+        string? path = selection.Count == 1 ? selection.First() : contextMenuItem?.Path;
+
+        if (path is null || promptDialog is null)
+        {
+            return;
+        }
+
+        string currentName = System.IO.Path.GetFileName(path.TrimEnd('/'));
+
+        string? newName = await promptDialog.ShowAsync(
+            "Rename",
+            "New name",
+            currentName,
+            "Rename",
+            selectStemOnly: true);
+
+        if (newName is null || newName == currentName)
+        {
+            return;
+        }
+
+        var result = await FileSystemService.RenameAsync(new RenameRequest
+        {
+            SourceId = SourceId,
+            Path = path,
+            NewName = newName,
+        });
+
+        if (result.IsSuccess)
+        {
+            Toasts.Success($"Renamed to {result.Value.Name}.");
+            selection.Clear();
+            await LoadAsync();
+        }
+        else
+        {
+            Toasts.Error(Describe(result, "The item could not be renamed."));
+        }
+    }
+
+    private void SetClipboard(bool isCut)
+    {
+        var paths = selection.Count > 0
+            ? selection.ToHashSet(StringComparer.Ordinal)
+            : contextMenuItem is null ? [] : [contextMenuItem.Path];
+
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
+        clipboard = new Clipboard(SourceId, paths, isCut);
+        Toasts.Info($"{paths.Count} {(paths.Count == 1 ? "item" : "items")} ready to paste.");
+    }
+
+    private async Task PasteAsync()
+    {
+        if (clipboard is null || listing is null)
+        {
+            return;
+        }
+
+        var result = await FileSystemService.TransferAsync(new TransferRequest
+        {
+            SourceId = clipboard.SourceId,
+            Paths = clipboard.Paths.ToList(),
+            DestinationSourceId = SourceId,
+            DestinationPath = CurrentPath,
+            IsCopy = !clipboard.IsCut,
+        });
+
+        if (!result.IsSuccess)
+        {
+            Toasts.Error(Describe(result, "Nothing could be pasted."));
+            return;
+        }
+
+        Toasts.ShowBulkResult(result.Value, clipboard.IsCut ? "Moved" : "Copied");
+
+        // A cut is consumed by the paste; a copy stays on the clipboard so it can be pasted
+        // into several folders.
+        if (clipboard.IsCut)
+        {
+            clipboard = null;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        var paths = selection.Count > 0
+            ? selection.ToList()
+            : contextMenuItem is null ? [] : [contextMenuItem.Path];
+
+        if (paths.Count == 0 || confirmDialog is null)
+        {
+            return;
+        }
+
+        string what = paths.Count == 1
+            ? $"\"{System.IO.Path.GetFileName(paths[0].TrimEnd('/'))}\""
+            : $"{paths.Count} items";
+
+        bool confirmed = await confirmDialog.ShowAsync(
+            "Delete",
+            $"Delete {what}?",
+            "Delete",
+            isDestructive: true,
+            detail: "This cannot be undone. Files are removed from disk, not moved to a recycle bin.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await FileSystemService.DeleteAsync(new DeleteRequest
+        {
+            SourceId = SourceId,
+            Paths = paths,
+        });
+
+        if (!result.IsSuccess)
+        {
+            Toasts.Error(Describe(result, "Nothing could be deleted."));
+            return;
+        }
+
+        Toasts.ShowBulkResult(result.Value, "Deleted");
+        selection.Clear();
+        await LoadAsync();
+    }
+
+    private async Task CreateFolderAsync()
+    {
+        if (promptDialog is null)
+        {
+            return;
+        }
+
+        string? name = await promptDialog.ShowAsync("New folder", "Folder name", "", "Create");
+
+        if (name is null)
+        {
+            return;
+        }
+
+        var result = await FileSystemService.CreateDirectoryAsync(new CreateDirectoryRequest
+        {
+            SourceId = SourceId,
+            Path = CurrentPath,
+            Name = name,
+        });
+
+        if (result.IsSuccess)
+        {
+            Toasts.Success($"Created {result.Value.Name}.");
+            await LoadAsync();
+        }
+        else
+        {
+            Toasts.Error(Describe(result, "The folder could not be created."));
+        }
+    }
+
+    private async Task CreateTextFileAsync()
+    {
+        if (promptDialog is null)
+        {
+            return;
+        }
+
+        string? name = await promptDialog.ShowAsync("New text file", "File name", "untitled.txt", "Create");
+
+        if (name is null)
+        {
+            return;
+        }
+
+        var result = await FileSystemService.SaveTextAsync(new SaveTextFileRequest
+        {
+            SourceId = SourceId,
+            Path = VirtualPath.Combine(CurrentPath, [name]),
+            Content = string.Empty,
+        });
+
+        if (!result.IsSuccess)
+        {
+            Toasts.Error(Describe(result, "The file could not be created."));
+            return;
+        }
+
+        // Straight into the editor, since creating an empty file is never the actual goal.
+        Navigation.NavigateTo($"/edit/{SourceId}{VirtualPath.Combine(CurrentPath, [name])}");
+    }
+
+    private async Task CompressAsync()
+    {
+        var paths = selection.Count > 0
+            ? selection.ToList()
+            : contextMenuItem is null ? [] : [contextMenuItem.Path];
+
+        if (paths.Count == 0 || promptDialog is null)
+        {
+            return;
+        }
+
+        string? name = await promptDialog.ShowAsync(
+            "Compress", "Archive name", ZipFileName(paths), "Create");
+
+        if (name is null)
+        {
+            return;
+        }
+
+        var result = await ArchiveService.CreateAsync(new CreateArchiveRequest
+        {
+            SourceId = SourceId,
+            Path = CurrentPath,
+            Paths = paths,
+            ArchiveName = name,
+            Format = name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)
+                ? "tar.gz"
+                : name.EndsWith(".tar", StringComparison.OrdinalIgnoreCase) ? "tar" : "zip",
+        });
+
+        if (result.IsSuccess)
+        {
+            Toasts.Success($"Created {result.Value.Name}.");
+            selection.Clear();
+            await LoadAsync();
+        }
+        else
+        {
+            Toasts.Error(Describe(result, "The archive could not be created."));
+        }
+    }
+
+    private async Task ExtractAsync(FileSystemItemDto item)
+    {
+        var result = await ArchiveService.ExtractAsync(new ExtractArchiveRequest
+        {
+            SourceId = SourceId,
+            Path = item.Path,
+        });
+
+        if (result.IsSuccess)
+        {
+            Toasts.ShowBulkResult(result.Value, "Extracted");
+            await LoadAsync();
+        }
+        else
+        {
+            Toasts.Error(Describe(result, "The archive could not be extracted."));
+        }
+    }
+
+    private async Task ShareAsync()
+    {
+        string path = selection.Count == 1 ? selection.First() : contextMenuItem?.Path ?? CurrentPath;
+
+        if (shareDialog is not null)
+        {
+            await shareDialog.ShowAsync(SourceId, path);
+        }
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        string path = selection.Count == 1 ? selection.First() : CurrentPath;
+
+        var result = await FavoriteService.ToggleAsync(SourceId, path);
+
+        if (!result.IsSuccess)
+        {
+            Toasts.Error(Describe(result, "The favourite could not be updated."));
+            return;
+        }
+
+        await RefreshFavoriteStateAsync();
+
+        // The sidebar renders favourites and sits outside this component's tree.
+        SidebarState.NotifyChanged();
+    }
+
+    // ---------------------------------------------------------------- JS callbacks
+
+    [JSInvokable]
+    public async Task OnShortcut(string combo)
+    {
+        // Escape closes whatever is open before touching the selection, so one press does the
+        // least surprising thing rather than several at once.
+        if (combo == "Escape")
+        {
+            if (previewItem is not null)
+            {
+                previewItem = null;
+            }
+            else if (contextMenuVisible)
+            {
+                contextMenuVisible = false;
+            }
+            else
+            {
+                selection.Clear();
+            }
+
+            StateHasChanged();
+
+            return;
+        }
+
+        var action = combo switch
+        {
+            "ctrl+a" => FileAction.SelectAll,
+            "Delete" when Can(FilePermission.Delete) => FileAction.Delete,
+            "F2" when Can(FilePermission.Rename) => FileAction.Rename,
+            "ctrl+c" when Can(FilePermission.Download) => FileAction.Copy,
+            "ctrl+x" when Can(FilePermission.Move) => FileAction.Cut,
+            "ctrl+v" when Can(FilePermission.Create) => FileAction.Paste,
+            _ => (FileAction?)null,
+        };
+
+        if (action is not null)
+        {
+            await HandleActionAsync(action.Value);
+        }
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnFilesDropped(DroppedFile[] files)
+    {
+        if (files.Length == 0 || !Can(FilePermission.Create))
+        {
+            if (files.Length > 0)
+            {
+                Toasts.Error("You don't have permission to upload here.");
+            }
+
+            return;
+        }
+
+        // Overwrite is asked about once for the whole batch. Prompting per file would be
+        // unusable for the folder drops this is built to handle.
+        var existing = listing?.Items.Select(i => i.Name).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            ?? [];
+
+        var collisions = files.Where(f => existing.Contains(f.Name)).ToList();
+        bool overwrite = false;
+
+        if (collisions.Count > 0 && confirmDialog is not null)
+        {
+            overwrite = await confirmDialog.ShowAsync(
+                "Replace files?",
+                collisions.Count == 1
+                    ? $"\"{collisions[0].Name}\" already exists here."
+                    : $"{collisions.Count} of these files already exist here.",
+                "Replace",
+                isDestructive: true,
+                detail: "Choose Cancel to skip the ones that already exist.");
+        }
+
+        await JS.InvokeVoidAsync(
+            "arcafsUploader.uploadPending", SourceId, CurrentPath, overwrite, dotNetRef);
+    }
+
+    [JSInvokable]
+    public void OnUploadProgress(long id, string fileName, long sent, long total)
+    {
+        var upload = uploads.FirstOrDefault(u => u.Id == id);
+
+        if (upload is null)
+        {
+            upload = new UploadTray.UploadProgress { Id = id, FileName = fileName };
+            uploads.Add(upload);
+        }
+
+        upload.BytesSent = sent;
+        upload.TotalBytes = total;
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void OnUploadComplete(long id, string fileName, bool succeeded, string? error)
+    {
+        var upload = uploads.FirstOrDefault(u => u.Id == id);
+
+        if (upload is null)
+        {
+            upload = new UploadTray.UploadProgress { Id = id, FileName = fileName };
+            uploads.Add(upload);
+        }
+
+        upload.IsComplete = true;
+        upload.Error = succeeded ? null : error ?? "The upload failed.";
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnUploadBatchComplete()
+    {
+        int failed = uploads.Count(u => u.Error is not null);
+        int succeeded = uploads.Count(u => u.Error is null);
+
+        if (failed == 0)
+        {
+            Toasts.Success($"Uploaded {succeeded} {(succeeded == 1 ? "file" : "files")}.");
+
+            // Only cleared on full success: a failure list the user hasn't read yet should stay
+            // on screen until they dismiss it.
+            uploads.Clear();
+        }
+        else
+        {
+            Toasts.Warning($"{failed} of {succeeded + failed} uploads failed.");
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task CancelUploadAsync(long id)
+    {
+        await JS.InvokeVoidAsync("arcafsUploader.cancelUpload", id);
+        uploads.RemoveAll(u => u.Id == id);
+    }
+
+    // --------------------------------------------------------------------- helpers
+
+    private static string Describe(Ardalis.Result.IResult result, string fallback) =>
+        result.Status switch
+        {
+            ResultStatus.Forbidden => "You don't have permission to do that.",
+            ResultStatus.NotFound => "That item no longer exists.",
+            ResultStatus.Invalid => string.Join(" ", result.ValidationErrors.Select(e => e.ErrorMessage)),
+            ResultStatus.Conflict => result.Errors.FirstOrDefault() ?? "That name is already taken.",
+            _ => result.Errors.FirstOrDefault() ?? fallback,
+        };
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double size = bytes;
+        int unit = 0;
+
+        while (size >= 1024 && unit < units.Length - 1)
+        {
+            size /= 1024;
+            unit++;
+        }
+
+        return unit == 0
+            ? $"{bytes} B"
+            : $"{size.ToString(size < 10 ? "0.0" : "0", CultureInfo.InvariantCulture)} {units[unit]}";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("arcafs.unregisterFileKeys", InteropKey);
+            await JS.InvokeVoidAsync("arcafsUploader.unregisterDropZone", InteropKey);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone, so the handlers went with the page.
+        }
+
+        dotNetRef?.Dispose();
+    }
+
+    private sealed record Clipboard(int SourceId, HashSet<string> Paths, bool IsCut);
+
+    /// <summary>Metadata for one dropped or picked file, before any bytes are sent.</summary>
+    public sealed record DroppedFile(string Name, long Size, string RelativePath);
+}

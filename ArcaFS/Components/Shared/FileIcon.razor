@@ -1,0 +1,42 @@
+@* Bootstrap icon for a file kind, coloured so a listing is scannable at a glance. *@
+<i class="bi @IconClass @ColorClass @CssClass" aria-hidden="true"></i>
+
+@code {
+    [Parameter, EditorRequired]
+    public FileKind Kind { get; set; }
+
+    [Parameter]
+    public bool IsSymlink { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    private string IconClass => IsSymlink
+        ? "bi-link-45deg"
+        : Kind switch
+        {
+            FileKind.Folder => "bi-folder-fill",
+            FileKind.Image => "bi-file-earmark-image",
+            FileKind.Video => "bi-file-earmark-play",
+            FileKind.Audio => "bi-file-earmark-music",
+            FileKind.Document => "bi-file-earmark-word",
+            FileKind.Archive => "bi-file-earmark-zip",
+            FileKind.Text => "bi-file-earmark-text",
+            FileKind.Code => "bi-file-earmark-code",
+            FileKind.Pdf => "bi-file-earmark-pdf",
+            FileKind.Epub => "bi-book",
+            _ => "bi-file-earmark",
+        };
+
+    private string ColorClass => Kind switch
+    {
+        FileKind.Folder => "text-warning",
+        FileKind.Image => "text-success",
+        FileKind.Video => "text-danger",
+        FileKind.Audio => "text-info",
+        FileKind.Archive => "text-secondary",
+        FileKind.Pdf => "text-danger",
+        FileKind.Code => "text-primary",
+        _ => "text-body-secondary",
+    };
+}

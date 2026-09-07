@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UserSecretsId>arcafs-web-4d1e7c92-6b3a-4f18-9c07-2ae5f1b8d640</UserSecretsId>
+		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+		<Version>1.0.0</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Ardalis.Result" Version="10.1.0" />
+		<PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="10.0.7" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.7">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Web.LibraryManager.Build" Version="3.0.71" />
+		<PackageReference Include="Sejil" Version="3.0.4" />
+		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.MSSqlServer" Version="9.0.3" />
+		<PackageReference Include="Serilog.Sinks.MySQL" Version="5.0.0" />
+		<PackageReference Include="Serilog.Sinks.Postgresql.Alternative" Version="4.2.0" />
+		<PackageReference Include="Serilog.Sinks.SQLite" Version="6.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\ArcaFS.Core\ArcaFS.Core.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data\ArcaFS.Data.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.Sqlite\ArcaFS.Data.Sqlite.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.Sql\ArcaFS.Data.Sql.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.Npgsql\ArcaFS.Data.Npgsql.csproj" />
+		<ProjectReference Include="..\ArcaFS.Data.MySql\ArcaFS.Data.MySql.csproj" />
+		<ProjectReference Include="..\ArcaFS.Models\ArcaFS.Models.csproj" />
+		<ProjectReference Include="..\ArcaFS.Services\ArcaFS.Services.csproj" />
+	</ItemGroup>
+
+</Project>

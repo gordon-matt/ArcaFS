@@ -1,0 +1,16 @@
+<Solution>
+  <Project Path="docker-compose.dcproj" Id="7f1a2c63-9d54-4f2b-8e17-63b0a1d54c2e">
+    <Build />
+  </Project>
+  <Project Path="ArcaFS.Core/ArcaFS.Core.csproj" />
+  <Project Path="ArcaFS.Data.MySql/ArcaFS.Data.MySql.csproj" />
+  <Project Path="ArcaFS.Data.Npgsql/ArcaFS.Data.Npgsql.csproj" />
+  <Project Path="ArcaFS.Data.Sql/ArcaFS.Data.Sql.csproj" />
+  <Project Path="ArcaFS.Data.Sqlite/ArcaFS.Data.Sqlite.csproj" />
+  <Project Path="ArcaFS.Data/ArcaFS.Data.csproj" />
+  <Project Path="ArcaFS.Desktop/ArcaFS.Desktop.csproj" />
+  <Project Path="ArcaFS.Models/ArcaFS.Models.csproj" />
+  <Project Path="ArcaFS.Services/ArcaFS.Services.csproj" />
+  <Project Path="ArcaFS.Tests/ArcaFS.Tests.csproj" />
+  <Project Path="ArcaFS/ArcaFS.csproj" />
+</Solution>

@@ -1,0 +1,212 @@
+@* Right-click menu. Entries are hidden rather than disabled when the permission is missing, so
+   the menu doesn't advertise actions the user can never take on this path. *@
+@if (IsVisible)
+{
+    @* Full-viewport catcher so any click outside dismisses the menu, including a right-click
+       somewhere else, which should reopen it there rather than leave two menus up. *@
+    <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1075;"
+         @onclick="() => OnClose.InvokeAsync()"
+         @oncontextmenu="() => OnClose.InvokeAsync()"
+         @oncontextmenu:preventDefault></div>
+
+    <ul class="dropdown-menu show arca-context-menu shadow"
+        style="@($"left: {X}px; top: {Y}px;")">
+        @if (SelectionCount > 1)
+        {
+            <li><h6 class="dropdown-header">@SelectionCount items</h6></li>
+        }
+
+        @if (Item is not null && Item.IsDirectory)
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Open)">
+                    <i class="bi bi-folder2-open me-2"></i> Open
+                </button>
+            </li>
+        }
+        else if (Item is not null && Can(FilePermission.Read))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Preview)">
+                    <i class="bi bi-eye me-2"></i> Preview
+                </button>
+            </li>
+
+            @if (IsEditable && Can(FilePermission.Read))
+            {
+                <li>
+                    <button class="dropdown-item" @onclick="() => Invoke(FileAction.Edit)">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        @(Can(FilePermission.Modify) ? "Edit" : "View source")
+                    </button>
+                </li>
+            }
+        }
+
+        @if (Can(FilePermission.Download))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Download)">
+                    <i class="bi bi-download me-2"></i> Download
+                </button>
+            </li>
+        }
+
+        <li><hr class="dropdown-divider" /></li>
+
+        @if (Can(FilePermission.Rename) && SelectionCount <= 1)
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Rename)">
+                    <i class="bi bi-input-cursor-text me-2"></i> Rename
+                    <span class="float-end text-body-tertiary small">F2</span>
+                </button>
+            </li>
+        }
+
+        @if (Can(FilePermission.Download))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Copy)">
+                    <i class="bi bi-files me-2"></i> Copy
+                    <span class="float-end text-body-tertiary small">Ctrl+C</span>
+                </button>
+            </li>
+        }
+
+        @if (Can(FilePermission.Move))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Cut)">
+                    <i class="bi bi-scissors me-2"></i> Cut
+                    <span class="float-end text-body-tertiary small">Ctrl+X</span>
+                </button>
+            </li>
+        }
+
+        @if (HasClipboard && Can(FilePermission.Create))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Paste)">
+                    <i class="bi bi-clipboard me-2"></i> Paste
+                    <span class="float-end text-body-tertiary small">Ctrl+V</span>
+                </button>
+            </li>
+        }
+
+        @if (Can(FilePermission.Delete))
+        {
+            <li>
+                <button class="dropdown-item text-danger" @onclick="() => Invoke(FileAction.Delete)">
+                    <i class="bi bi-trash me-2"></i> Delete
+                    <span class="float-end text-body-tertiary small">Del</span>
+                </button>
+            </li>
+        }
+
+        <li><hr class="dropdown-divider" /></li>
+
+        @if (Can(FilePermission.Create) && Can(FilePermission.Download))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Compress)">
+                    <i class="bi bi-file-earmark-zip me-2"></i> Compress…
+                </button>
+            </li>
+        }
+
+        @if (IsArchive && Can(FilePermission.Create))
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Extract)">
+                    <i class="bi bi-box-arrow-down me-2"></i> Extract here
+                </button>
+            </li>
+        }
+
+        @if (CanShare && SelectionCount <= 1)
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Share)">
+                    <i class="bi bi-link-45deg me-2"></i> Share…
+                </button>
+            </li>
+        }
+
+        @if (SelectionCount <= 1)
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.ToggleFavorite)">
+                    <i class="bi @(IsFavorite ? "bi-star-fill" : "bi-star") me-2"></i>
+                    @(IsFavorite ? "Remove from favourites" : "Add to favourites")
+                </button>
+            </li>
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.Info)">
+                    <i class="bi bi-info-circle me-2"></i> Details
+                </button>
+            </li>
+        }
+
+        @if (CanManageAccess && SelectionCount <= 1)
+        {
+            <li>
+                <button class="dropdown-item" @onclick="() => Invoke(FileAction.ManageAccess)">
+                    <i class="bi bi-shield-lock me-2"></i> Access rules
+                </button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public double X { get; set; }
+
+    [Parameter]
+    public double Y { get; set; }
+
+    /// <summary>The right-clicked item, or null for a right-click on empty space.</summary>
+    [Parameter]
+    public FileSystemItemDto? Item { get; set; }
+
+    [Parameter]
+    public int SelectionCount { get; set; }
+
+    /// <summary>Effective permissions at the current directory.</summary>
+    [Parameter]
+    public FilePermission Permissions { get; set; }
+
+    [Parameter]
+    public bool HasClipboard { get; set; }
+
+    [Parameter]
+    public bool IsFavorite { get; set; }
+
+    [Parameter]
+    public bool CanShare { get; set; }
+
+    [Parameter]
+    public bool CanManageAccess { get; set; }
+
+    [Parameter]
+    public EventCallback<FileAction> OnAction { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private bool IsArchive => Item?.Kind == FileKind.Archive;
+
+    private bool IsEditable => Item?.Kind is FileKind.Text or FileKind.Code;
+
+    private bool Can(FilePermission permission) => Permissions.HasAny(permission);
+
+    private async Task Invoke(FileAction action)
+    {
+        await OnClose.InvokeAsync();
+        await OnAction.InvokeAsync(action);
+    }
+}
