@@ -19,6 +19,16 @@ public enum ListingViewMode
     Gallery = 4,
 }
 
+/// <summary>Where a double-clicked file opens.</summary>
+public enum FileOpenTarget
+{
+    /// <summary>Overlay on top of the folder listing. The default.</summary>
+    Dialog = 0,
+
+    /// <summary>A dedicated page, the way the text editor used to work.</summary>
+    Page = 1,
+}
+
 public enum ListingSortField
 {
     Name = 0,

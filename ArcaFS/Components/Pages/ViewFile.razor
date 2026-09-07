@@ -1,0 +1,103 @@
+@page "/view/{SourceId:int}/{*Path}"
+@attribute [Authorize]
+
+@inject IFileSystemService FileSystemService
+@inject NavigationManager Navigation
+
+<PageTitle>@(detail?.Name ?? "Preview") - ArcaFS</PageTitle>
+
+@if (loadError is not null)
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>@loadError
+    </div>
+    <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">
+        <i class="bi bi-arrow-left me-1"></i> Back to folder
+    </button>
+}
+else if (detail is null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-column h-100">
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <h1 class="h6 mb-0 arca-truncate" title="@detail.Path">
+                <FileIcon Kind="@detail.Kind" CssClass="me-1" />
+                @detail.Name
+            </h1>
+            <div class="ms-auto d-flex align-items-center gap-1">
+                @if (FileKinds.IsEditable(detail.Kind))
+                {
+                    <a class="btn btn-sm btn-outline-secondary" href="@($"/edit/{SourceId}{detail.Path}")">
+                        <i class="bi bi-pencil-square me-1"></i> Edit
+                    </a>
+                }
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="@($"/api/files/download?sourceId={SourceId}&path={Uri.EscapeDataString(detail.Path)}")">
+                    <i class="bi bi-download"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="flex-grow-1 overflow-hidden rounded border">
+            <FilePreviewStage SourceId="@SourceId"
+                              Path="@detail.Path"
+                              Name="@detail.Name"
+                              Kind="@detail.Kind" />
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int SourceId { get; set; }
+
+    [Parameter]
+    public string? Path { get; set; }
+
+    private FileDetailDto? detail;
+    private string? loadError;
+
+    private string FolderUrl
+    {
+        get
+        {
+            var segments = VirtualPath.GetSegments(VirtualPath.Normalize(Path));
+            string parent = segments.Length <= 1
+                ? Constants.RootPath
+                : VirtualPath.Combine(Constants.RootPath, segments[..^1]);
+
+            return $"/files/{SourceId}{(parent == Constants.RootPath ? string.Empty : parent)}";
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = null;
+        detail = null;
+
+        var result = await FileSystemService.GetDetailAsync(SourceId, VirtualPath.Normalize(Path));
+
+        if (result.IsSuccess)
+        {
+            detail = result.Value;
+            return;
+        }
+
+        loadError = result.Status switch
+        {
+            ResultStatus.Forbidden => "You don't have permission to open this file.",
+            ResultStatus.NotFound => "That file no longer exists.",
+            _ => result.Errors.FirstOrDefault() ?? "The file could not be opened.",
+        };
+    }
+
+    private void GoBack() => Navigation.NavigateTo(FolderUrl);
+}

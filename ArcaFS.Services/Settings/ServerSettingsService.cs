@@ -105,6 +105,9 @@ public sealed class ServerSettingsService(
             SetupComplete = ParseBool(all.GetValueOrDefault(Constants.ServerSettingKeys.SetupComplete)),
             AllowRegistration = ParseBool(all.GetValueOrDefault(Constants.ServerSettingKeys.AllowRegistration)),
             SharesEnabled = ParseBool(all.GetValueOrDefault(Constants.ServerSettingKeys.SharesEnabled), true),
+            OpenFilesIn = ParseEnum(
+                all.GetValueOrDefault(Constants.ServerSettingKeys.OpenFilesIn),
+                Constants.ServerSettingDefaults.OpenFilesIn),
         };
     }
 
@@ -138,6 +141,10 @@ public sealed class ServerSettingsService(
         await SetAsync(
             Constants.ServerSettingKeys.SharesEnabled,
             settings.SharesEnabled.ToString(),
+            cancellationToken);
+        await SetAsync(
+            Constants.ServerSettingKeys.OpenFilesIn,
+            settings.OpenFilesIn.ToString(),
             cancellationToken);
 
         logger.LogInformation("Server settings updated by {User}", userContext.GetCurrentUserName());
@@ -184,4 +191,7 @@ public sealed class ServerSettingsService(
 
     private static bool ParseBool(string? value, bool fallback = false) =>
         bool.TryParse(value, out bool parsed) ? parsed : fallback;
+
+    private static T ParseEnum<T>(string? value, T fallback) where T : struct, Enum =>
+        Enum.TryParse(value, ignoreCase: true, out T parsed) ? parsed : fallback;
 }

@@ -4,13 +4,15 @@
 {
     @* Full-viewport catcher so any click outside dismisses the menu, including a right-click
        somewhere else, which should reopen it there rather than leave two menus up. *@
-    <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1075;"
+    <div class="position-fixed top-0 start-0 w-100 h-100 arca-context-dismiss"
          @onclick="() => OnClose.InvokeAsync()"
          @oncontextmenu="() => OnClose.InvokeAsync()"
          @oncontextmenu:preventDefault></div>
 
     <ul class="dropdown-menu show arca-context-menu shadow"
-        style="@($"left: {X}px; top: {Y}px;")">
+        style="@($"left: {X}px; top: {Y}px; z-index: 2000;")"
+        @onmousedown:stopPropagation="true"
+        @onclick:stopPropagation="true">
         @if (SelectionCount > 1)
         {
             <li><h6 class="dropdown-header">@SelectionCount items</h6></li>
@@ -206,7 +208,7 @@
 
     private async Task Invoke(FileAction action)
     {
-        await OnClose.InvokeAsync();
         await OnAction.InvokeAsync(action);
+        await OnClose.InvokeAsync();
     }
 }

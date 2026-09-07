@@ -1,3 +1,5 @@
+using ArcaFS.Enums;
+
 namespace ArcaFS;
 
 public static class Constants
@@ -118,6 +120,7 @@ public static class Constants
     public static class ServerSettingDefaults
     {
         public const string Theme = "flatly";
+        public const FileOpenTarget OpenFilesIn = FileOpenTarget.Dialog;
     }
 
     /// <summary>
@@ -130,6 +133,7 @@ public static class Constants
         public const string SetupComplete = "setup.complete";
         public const string Theme = "ui.theme";
         public const string SiteName = "ui.siteName";
+        public const string OpenFilesIn = "ui.openFilesIn";
         public const string AllowRegistration = "auth.allowRegistration";
         public const string SharesEnabled = "shares.enabled";
     }

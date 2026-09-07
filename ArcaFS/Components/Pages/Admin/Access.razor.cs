@@ -8,6 +8,7 @@ public partial class Access
     private bool applyingTemplate;
     private string? bannerError;
     private ConfirmDialog? confirmDialog;
+    private string? explainError;
     private EffectivePermissionsDto? explanation;
     private RuleForm form = new();
     private IReadOnlyList<AccessGroupDto> groups = [];
@@ -38,6 +39,7 @@ public partial class Access
         sources = sourceResult.IsSuccess ? sourceResult.Value : [];
 
         users = await UserInfoService.GetAllUsersAsync();
+        simulateUserId = UserContext.GetCurrentUserId();
 
         var groupResult = await AccessGroupService.ListAsync();
         groups = groupResult.IsSuccess ? groupResult.Value : [];
@@ -211,10 +213,18 @@ public partial class Access
 
     private async Task ExplainAsync()
     {
+        explainError = null;
+
+        if (selectedSourceId <= 0)
+        {
+            explainError = "Select a source first.";
+            return;
+        }
+
         var result = await PermissionService.ExplainAsync(new EffectivePermissionsRequest
         {
             SourceId = selectedSourceId,
-            Path = simulatePath,
+            Path = string.IsNullOrWhiteSpace(simulatePath) ? Constants.RootPath : simulatePath,
             UserId = string.IsNullOrWhiteSpace(simulateUserId) ? null : simulateUserId,
         });
 
@@ -224,7 +234,7 @@ public partial class Access
         }
         else
         {
-            bannerError = result.GetDisplayMessage();
+            explainError = result.GetDisplayMessage();
             explanation = null;
         }
     }

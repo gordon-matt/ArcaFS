@@ -58,6 +58,17 @@ public class FileKindsTests
         Assert.Equal(expected, FileKinds.GetEditorLanguage(fileName));
 
     [Fact]
+    public void CanPreview_CoversMediaAndText()
+    {
+        Assert.True(FileKinds.CanPreview(FileKind.Image));
+        Assert.True(FileKinds.CanPreview(FileKind.Pdf));
+        Assert.True(FileKinds.CanPreview(FileKind.Text));
+        Assert.True(FileKinds.CanPreview(FileKind.Code));
+        Assert.False(FileKinds.CanPreview(FileKind.Archive));
+        Assert.False(FileKinds.CanPreview(FileKind.Folder));
+    }
+
+    [Fact]
     public void OnlyOpensTextAndCodeInTheEditor()
     {
         Assert.True(FileKinds.IsEditable(FileKind.Text));

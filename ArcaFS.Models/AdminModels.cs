@@ -79,6 +79,8 @@ public record ServerSettingsDto
     public bool AllowRegistration { get; init; }
 
     public bool SharesEnabled { get; init; } = true;
+
+    public FileOpenTarget OpenFilesIn { get; init; } = FileOpenTarget.Dialog;
 }
 
 /// <summary>Per-user preferences that live on the Identity row rather than in localStorage.</summary>

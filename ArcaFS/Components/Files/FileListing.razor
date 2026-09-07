@@ -45,7 +45,8 @@ else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact
                     @onclick="e => OnItemClick.InvokeAsync((item, e))"
                     @ondblclick="() => OnItemActivate.InvokeAsync(item)"
                     @oncontextmenu="e => OnItemContextMenu.InvokeAsync((item, e))"
-                    @oncontextmenu:preventDefault>
+                    @oncontextmenu:preventDefault
+                    @oncontextmenu:stopPropagation>
                     <td @onclick:stopPropagation="true">
                         <input type="checkbox" class="form-check-input"
                                aria-label="@($"Select {item.Name}")"
@@ -56,13 +57,15 @@ else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact
                         <div class="arca-name-cell">
                             @if (ShowThumbnails && item.HasThumbnail && ViewMode == ListingViewMode.List)
                             {
-                                <img class="arca-item-icon" loading="lazy" alt=""
-                                     src="@ThumbnailUrl(item, 48)" />
+                                <div class="arca-file-face arca-file-face-sm arca-checkered">
+                                    <img loading="lazy" alt="" src="@ThumbnailUrl(item, 48)" />
+                                </div>
                             }
                             else
                             {
-                                <FileIcon Kind="item.Kind" IsSymlink="item.IsSymlink"
-                                          CssClass="arca-item-icon" />
+                                <div class="arca-file-face arca-file-face-sm">
+                                    <FileIcon Kind="item.Kind" IsSymlink="item.IsSymlink" />
+                                </div>
                             }
                             <span class="arca-name-text @(item.IsHidden ? "opacity-50" : null)"
                                   title="@item.Name">@item.Name</span>
@@ -92,7 +95,8 @@ else
                  @onclick="e => OnItemClick.InvokeAsync((item, e))"
                  @ondblclick="() => OnItemActivate.InvokeAsync(item)"
                  @oncontextmenu="e => OnItemContextMenu.InvokeAsync((item, e))"
-                 @oncontextmenu:preventDefault>
+                 @oncontextmenu:preventDefault
+                 @oncontextmenu:stopPropagation>
                 <input type="checkbox" class="form-check-input arca-grid-check"
                        aria-label="@($"Select {item.Name}")"
                        checked="@SelectedPaths.Contains(item.Path)"
@@ -101,14 +105,14 @@ else
 
                 @if (ShowThumbnails && item.HasThumbnail)
                 {
-                    @* loading="lazy" matters here: a folder of 3,000 photos would otherwise
-                       fire 3,000 thumbnail requests on first paint. *@
-                    <img class="arca-grid-thumb" loading="lazy" alt="@item.Name"
-                         src="@ThumbnailUrl(item, ViewMode == ListingViewMode.Gallery ? 384 : 256)" />
+                    <div class="arca-file-face @(ViewMode == ListingViewMode.Gallery ? "arca-file-face-lg" : null) arca-checkered">
+                        <img loading="lazy" alt="@item.Name"
+                             src="@ThumbnailUrl(item, ViewMode == ListingViewMode.Gallery ? 384 : 256)" />
+                    </div>
                 }
                 else
                 {
-                    <div class="arca-grid-icon">
+                    <div class="arca-file-face @(ViewMode == ListingViewMode.Gallery ? "arca-file-face-lg" : null)">
                         <FileIcon Kind="item.Kind" IsSymlink="item.IsSymlink" />
                     </div>
                 }

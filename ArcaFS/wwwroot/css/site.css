@@ -305,6 +305,52 @@ body:has(.arca-shell) {
     font-size: 1.05rem;
 }
 
+.arca-file-face {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 7.5rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-sm);
+    overflow: hidden;
+    font-size: 3.25rem;
+    line-height: 1;
+    background-color: var(--bs-body-bg);
+}
+
+.arca-file-face i {
+    line-height: 1;
+}
+
+.arca-file-face img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.arca-file-face-sm {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.15rem;
+}
+
+.arca-file-face-lg {
+    height: 10rem;
+}
+
+.arca-checkered {
+    background-color: #fff;
+    background-image:
+        linear-gradient(45deg, #c8c8c8 25%, transparent 25%),
+        linear-gradient(-45deg, #c8c8c8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #c8c8c8 75%),
+        linear-gradient(-45deg, transparent 75%, #c8c8c8 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
 .arca-size,
 .arca-modified {
     white-space: nowrap;
@@ -351,26 +397,6 @@ body:has(.arca-shell) {
     opacity: 0.5;
 }
 
-.arca-grid-icon {
-    font-size: 2.6rem;
-    line-height: 1;
-    height: 3.2rem;
-    display: flex;
-    align-items: center;
-}
-
-.arca-grid.gallery .arca-grid-icon {
-    height: 8rem;
-}
-
-.arca-grid-thumb {
-    width: 100%;
-    height: 8rem;
-    object-fit: cover;
-    border-radius: var(--bs-border-radius-sm);
-    background-color: var(--bs-tertiary-bg);
-}
-
 .arca-grid-label {
     font-size: 0.82rem;
     line-height: 1.2;
@@ -397,7 +423,11 @@ body:has(.arca-shell) {
 
 /* ------------------------------------------------------- context menu */
 
-.arca-context-menu {
+.arca-context-dismiss {
+    z-index: 1070;
+}
+
+.dropdown-menu.arca-context-menu {
     position: fixed;
     z-index: 1080;
     min-width: 12rem;
@@ -421,6 +451,23 @@ body:has(.arca-shell) {
     max-width: 100%;
     max-height: 78vh;
     object-fit: contain;
+}
+
+.arca-preview-stage img.arca-checkered {
+    background-color: #fff;
+}
+
+.arca-preview-text {
+    width: 100%;
+    max-height: 78vh;
+    overflow: auto;
+    padding: 1rem 1.25rem;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
 }
 
 .arca-preview-nav {

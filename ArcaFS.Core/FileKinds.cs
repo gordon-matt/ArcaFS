@@ -179,6 +179,11 @@ public static class FileKinds
     /// </summary>
     public static bool IsEditable(FileKind kind) => kind is FileKind.Text or FileKind.Code;
 
+    /// <summary>Kinds the in-app viewer can show, whether in a dialog or on a page.</summary>
+    public static bool CanPreview(FileKind kind) => kind is
+        FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf
+        or FileKind.Text or FileKind.Code;
+
     /// <summary>
     /// Whether a download may be served with <c>Content-Disposition: inline</c>.
     /// </summary>

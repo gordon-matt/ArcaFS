@@ -49,6 +49,17 @@ else
                             Each browser can override this from the palette in the top bar.
                         </div>
                     </div>
+                    <div class="mb-0 mt-3">
+                        <label class="form-label" for="set-open">Open files in</label>
+                        <select id="set-open" class="form-select" @bind="form.OpenFilesIn">
+                            <option value="@FileOpenTarget.Dialog">A dialog over the folder</option>
+                            <option value="@FileOpenTarget.Page">A full page</option>
+                        </select>
+                        <div class="form-text">
+                            Images, PDFs, media and text all use this. Choose Edit from the
+                            context menu when you want the text editor.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -115,6 +126,7 @@ else
         form.Theme = current.Theme;
         form.SharesEnabled = current.SharesEnabled;
         form.AllowRegistration = current.AllowRegistration;
+        form.OpenFilesIn = current.OpenFilesIn;
         loaded = true;
     }
 
@@ -131,6 +143,7 @@ else
                 Theme = form.Theme,
                 SharesEnabled = form.SharesEnabled,
                 AllowRegistration = form.AllowRegistration,
+                OpenFilesIn = form.OpenFilesIn,
                 SetupComplete = true,
             });
             if (result.IsSuccess)
@@ -154,5 +167,6 @@ else
         public string Theme { get; set; } = Constants.ServerSettingDefaults.Theme;
         public bool SharesEnabled { get; set; } = true;
         public bool AllowRegistration { get; set; }
+        public FileOpenTarget OpenFilesIn { get; set; } = FileOpenTarget.Dialog;
     }
 }

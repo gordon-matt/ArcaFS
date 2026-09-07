@@ -14,6 +14,7 @@
 @inject IJSRuntime JS
 @inject ToastService Toasts
 @inject SidebarState SidebarState
+@inject IServerSettingsService SettingsService
 
 <PageTitle>@(listing?.Path == Constants.RootPath ? listing?.SourceName : CurrentFolderName) - ArcaFS</PageTitle>
 
@@ -305,6 +306,7 @@
     private bool isCurrentFavorite;
     private bool canCreateShares;
     private bool canManageAccess;
+    private FileOpenTarget openFilesIn = FileOpenTarget.Dialog;
 
     private readonly List<UploadTray.UploadProgress> uploads = [];
 
@@ -351,6 +353,8 @@
         var permissions = await PermissionService.GetPermissionsAsync(SourceId, Constants.RootPath);
         canCreateShares = permissions.HasAny(FilePermission.Share);
         canManageAccess = UserContext.IsAdministrator();
+        var settings = await SettingsService.GetAllAsync();
+        openFilesIn = settings.OpenFilesIn;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -459,12 +463,16 @@
 
         switch (item.Kind)
         {
-            case FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf:
-                previewItem = item;
-                break;
-
-            case FileKind.Text or FileKind.Code:
-                Navigation.NavigateTo($"/edit/{SourceId}{item.Path}");
+            case FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf
+                or FileKind.Text or FileKind.Code:
+                if (openFilesIn == FileOpenTarget.Page)
+                {
+                    Navigation.NavigateTo($"/view/{SourceId}{item.Path}");
+                }
+                else
+                {
+                    previewItem = item;
+                }
                 break;
 
             default:
@@ -641,18 +649,21 @@
 
     private async Task HandleActionAsync(FileAction action)
     {
+        var item = contextMenuItem;
+        contextMenuVisible = false;
+
         switch (action)
         {
-            case FileAction.Open when contextMenuItem is not null:
-                await ActivateAsync(contextMenuItem);
+            case FileAction.Open when item is not null:
+                await ActivateAsync(item);
                 break;
 
-            case FileAction.Preview when contextMenuItem is not null:
-                previewItem = contextMenuItem;
+            case FileAction.Preview when item is not null:
+                await ActivateAsync(item);
                 break;
 
-            case FileAction.Edit when contextMenuItem is not null:
-                Navigation.NavigateTo($"/edit/{SourceId}{contextMenuItem.Path}");
+            case FileAction.Edit when item is not null:
+                Navigation.NavigateTo($"/edit/{SourceId}{item.Path}");
                 break;
 
             case FileAction.Download:
@@ -683,8 +694,8 @@
                 await CompressAsync();
                 break;
 
-            case FileAction.Extract when contextMenuItem is not null:
-                await ExtractAsync(contextMenuItem);
+            case FileAction.Extract when item is not null:
+                await ExtractAsync(item);
                 break;
 
             case FileAction.Share:
