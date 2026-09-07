@@ -136,7 +136,7 @@ public record ExtractArchiveRequest
 
     public string Path { get; init; } = string.Empty;
 
-    /// <summary>Null extracts alongside the archive into a folder named after it.</summary>
+    /// <summary>Null extracts into the archive's parent folder (the current folder).</summary>
     public string? DestinationPath { get; init; }
 
     public bool Overwrite { get; init; }

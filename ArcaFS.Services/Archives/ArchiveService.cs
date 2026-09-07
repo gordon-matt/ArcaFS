@@ -156,12 +156,9 @@ public sealed class ArchiveService(
             return Result<BulkOperationResultDto>.NotFound($"'{request.Path}' was not found.");
         }
 
-        // Default to a folder named after the archive, so extracting never scatters a hundred
-        // loose files into the current directory.
-        string destinationVirtual = request.DestinationPath
-            ?? VirtualPath.Combine(
-                VirtualPath.GetParent(archive.Value.ScopedVirtualPath) ?? Constants.RootPath,
-                Path.GetFileNameWithoutExtension(archive.Value.PhysicalPath));
+        string destinationVirtual = DefaultExtractDestination(
+            archive.Value.ScopedVirtualPath,
+            request.DestinationPath);
 
         var destination = await permissionService.RequireAsync(
             request.SourceId,
@@ -174,10 +171,35 @@ public sealed class ArchiveService(
             return destination.To<BulkOperationResultDto>();
         }
 
+        if (File.Exists(destination.Value.PhysicalPath))
+        {
+            return Result<BulkOperationResultDto>.Conflict(
+                $"'{Path.GetFileName(destination.Value.PhysicalPath)}' already exists here.");
+        }
+
         var results = new List<FileOperationResultDto>();
 
         try
         {
+            if (!request.Overwrite)
+            {
+                using var listing = ArchiveFactory.OpenArchive(
+                    archive.Value.PhysicalPath,
+                    ReaderOptions.ForFilePath);
+
+                var conflicts = FindConflictingExtractNames(
+                    destination.Value.PhysicalPath,
+                    listing.Entries
+                        .Where(e => e.Key is not null)
+                        .Select(e => (e.Key!, e.IsDirectory)));
+
+                if (conflicts.Count > 0)
+                {
+                    return Result<BulkOperationResultDto>.Conflict(
+                        FormatAlreadyExistsMessage(conflicts));
+                }
+            }
+
             Directory.CreateDirectory(destination.Value.PhysicalPath);
 
             results = await ExtractEntriesAsync(
@@ -385,7 +407,7 @@ public sealed class ArchiveService(
                     "so it was not extracted.");
             }
 
-            if (!overwrite && File.Exists(entryDestination))
+            if (!overwrite && (File.Exists(entryDestination) || Directory.Exists(entryDestination)))
             {
                 results.Add(new FileOperationResultDto(entry.Key, false, "Already exists."));
                 continue;
@@ -417,6 +439,78 @@ public sealed class ArchiveService(
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// Extracts into the archive's parent folder unless a destination was supplied. Compressing
+    /// a file and extracting it again should put that file back next to the archive, not inside
+    /// a new folder named after it.
+    /// </summary>
+    internal static string DefaultExtractDestination(string archiveScopedPath, string? requestedDestination)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedDestination))
+        {
+            return VirtualPath.Normalize(requestedDestination);
+        }
+
+        return VirtualPath.GetParent(VirtualPath.Normalize(archiveScopedPath)) ?? Constants.RootPath;
+    }
+
+    /// <summary>
+    /// Names of archive entries that would overwrite something already on disk. Used to refuse
+    /// the whole extract before any files are written.
+    /// </summary>
+    internal static IReadOnlyList<string> FindConflictingExtractNames(
+        string destinationRoot,
+        IEnumerable<(string Key, bool IsDirectory)> entries)
+    {
+        string normalizedRoot = Path.GetFullPath(destinationRoot);
+        var names = new List<string>();
+        var seen = new HashSet<string>(
+            OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (key, isDirectory) in entries)
+        {
+            string? dest = ResolveEntryDestination(normalizedRoot, key);
+            if (dest is null)
+            {
+                continue;
+            }
+
+            bool conflict = isDirectory
+                ? File.Exists(dest)
+                : File.Exists(dest) || Directory.Exists(dest);
+
+            if (!conflict)
+            {
+                continue;
+            }
+
+            string name = Path.GetFileName(
+                dest.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+            if (name.Length == 0)
+            {
+                name = key;
+            }
+
+            if (seen.Add(name))
+            {
+                names.Add(name);
+            }
+        }
+
+        return names;
+    }
+
+    internal static string FormatAlreadyExistsMessage(IReadOnlyList<string> names)
+    {
+        if (names.Count == 1)
+        {
+            return $"'{names[0]}' already exists here.";
+        }
+
+        return "One or more files already exist here.";
     }
 
     /// <summary>
