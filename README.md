@@ -1,6 +1,6 @@
 # ArcaFS
 
-Arca File System — a self-hosted file browser for .NET 10 / Blazor Server, inspired by [File Browser Quantum](https://github.com/gtsteffaniak/filebrowser).
+Arca File System — a self-hosted file browser for .NET 10 / Blazor Server.
 
 Permissions are **per user, per path, on each source**. That means you can give each person a writable home folder and keep a shared folder read-only for everyone except you — something a source-wide read-only switch cannot express.
 

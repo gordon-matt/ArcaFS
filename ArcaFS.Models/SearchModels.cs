@@ -29,9 +29,9 @@ public record SearchRequest
 }
 
 /// <summary>
-/// The structured form of a search string. Mirrors File Browser Quantum's <c>type:</c> syntax so
-/// muscle memory carries over: <c>type:image</c>, <c>type:largerThan=50M</c>,
-/// <c>type:newerThan=2024-01-01</c>, <c>case:exact</c>, quoted phrases, and <c>a|b</c> alternation.
+/// The structured form of a search string. Supports <c>type:image</c>,
+/// <c>type:largerThan=50M</c>, <c>type:newerThan=2024-01-01</c>, <c>case:exact</c>,
+/// quoted phrases, and <c>a|b</c> alternation.
 /// </summary>
 public record SearchQuery
 {

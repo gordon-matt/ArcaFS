@@ -546,9 +546,10 @@ public sealed partial class FileSystemService
     }
 
     /// <summary>
-    /// Weak ETag over size and modification time. Cheap, and changes whenever the file does,
-    /// which is all a conditional GET needs.
+    /// Opaque validator over size and modification time. Cheap, and changes whenever the file
+    /// does, which is all a conditional GET needs. The HTTP layer quotes this and marks it weak;
+    /// the value itself must stay unquoted so it is a legal ETag name.
     /// </summary>
     private static string BuildETag(FileInfo info) =>
-        $"W/\"{info.Length:x}-{info.LastWriteTimeUtc.Ticks:x}\"";
+        $"{info.Length:x}-{info.LastWriteTimeUtc.Ticks:x}";
 }

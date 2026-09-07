@@ -12,7 +12,7 @@ public partial class Access
     private RuleForm form = new();
     private IReadOnlyList<AccessGroupDto> groups = [];
     private string? modalError;
-    private bool replaceExisting;
+    private readonly Dictionary<string, bool> replaceExistingByTemplate = [];
     private IReadOnlyList<AccessRuleDto>? rules;
     private bool saving;
     private SourceDto? selectedSource;
@@ -164,6 +164,12 @@ public partial class Access
         }
     }
 
+    private bool IsReplaceExisting(string templateKey) =>
+        replaceExistingByTemplate.GetValueOrDefault(templateKey);
+
+    private void SetReplaceExisting(string templateKey, bool value) =>
+        replaceExistingByTemplate[templateKey] = value;
+
     private async Task ApplyTemplateAsync(AccessTemplateDto template)
     {
         applyingTemplate = true;
@@ -185,7 +191,7 @@ public partial class Access
                 selectedSourceId,
                 template.Key,
                 subjectId,
-                replaceExisting);
+                IsReplaceExisting(template.Key));
 
             if (result.IsSuccess)
             {

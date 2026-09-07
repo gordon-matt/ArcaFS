@@ -38,12 +38,12 @@ public partial class Sources
         showEditor = true;
     }
 
-    private void OpenEdit(SourceDto source)
+    private async Task OpenEdit(SourceDto source)
     {
         form = SourceForm.From(source);
-        probe = null;
         modalError = null;
         showEditor = true;
+        await ProbePathAsync();
     }
 
     private void OpenAccess(SourceDto source) =>
@@ -54,6 +54,16 @@ public partial class Sources
         showEditor = false;
         modalError = null;
         probe = null;
+    }
+
+    private async Task OnPathCommittedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(form.Name) && !string.IsNullOrWhiteSpace(form.Path))
+        {
+            form.Name = new DirectoryInfo(form.Path).Name is { Length: > 0 } name ? name : "Files";
+        }
+
+        await ProbePathAsync();
     }
 
     private async Task ProbePathAsync()

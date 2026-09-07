@@ -1,0 +1,177 @@
+@inject ISetupService SetupService
+
+<div class="input-group">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else
+    {
+        <input id="@InputId"
+               class="form-control font-monospace"
+               value="@Path"
+               @oninput="OnInputAsync"
+               @onchange="OnChangeAsync" />
+    }
+    <button type="button" class="btn btn-outline-secondary" title="Browse folders"
+            @onclick="OpenAsync">
+        <i class="bi bi-folder2-open"></i>
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(browseError))
+{
+    <div class="form-text text-danger">@browseError</div>
+}
+
+@if (listing is not null)
+{
+    <div class="card mt-2 mb-0">
+        <div class="card-body p-2">
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        disabled="@(listing.ParentPath is null)"
+                        @onclick="() => BrowseAsync(listing.ParentPath)">
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+                <code class="small text-break flex-grow-1">
+                    @(listing.CurrentPath ?? "This server")
+                </code>
+                @if (listing.CurrentPath is not null)
+                {
+                    <button type="button" class="btn btn-sm btn-primary"
+                            @onclick="() => ChoosePathAsync(listing.CurrentPath)">
+                        Use this folder
+                    </button>
+                }
+                <button type="button" class="btn btn-sm btn-link"
+                        @onclick="Close">
+                    Close
+                </button>
+            </div>
+
+            <div class="list-group list-group-flush"
+                 style="max-height: 14rem; overflow-y: auto;">
+                @{
+                    var entries = listing.CurrentPath is null
+                        ? listing.Roots
+                        : listing.Directories;
+                }
+                @if (entries.Count == 0)
+                {
+                    <div class="list-group-item text-body-secondary small py-2">
+                        This folder has no subfolders. Use it as the source, or go up.
+                    </div>
+                }
+                @foreach (var directory in entries)
+                {
+                    <div class="list-group-item d-flex align-items-center gap-2 py-1">
+                        <button type="button"
+                                class="btn btn-sm btn-link text-decoration-none flex-grow-1 text-start text-truncate"
+                                @onclick="() => BrowseAsync(directory.FullPath)">
+                            <i class="bi bi-folder-fill text-warning me-1"></i>
+                            @directory.Name
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-primary flex-shrink-0"
+                                @onclick="() => ChoosePathAsync(directory.FullPath)">
+                            Use
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Path { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> PathChanged { get; set; }
+
+    /// <summary>
+    /// Fires after a folder is chosen or the text box is committed (change/blur).
+    /// Use this to probe the path or fill in a default name.
+    /// </summary>
+    [Parameter]
+    public EventCallback PathCommitted { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string InputId { get; set; } = "host-folder-path";
+
+    [Parameter]
+    public bool UpdateOnInput { get; set; }
+
+    private string? browseError;
+    private HostDirectoryListingDto? listing;
+
+    private Task OpenAsync() =>
+        BrowseAsync(string.IsNullOrWhiteSpace(Path) ? null : Path);
+
+    private void Close()
+    {
+        listing = null;
+        browseError = null;
+    }
+
+    private async Task OnInputAsync(ChangeEventArgs e)
+    {
+        if (!UpdateOnInput)
+        {
+            return;
+        }
+
+        await PathChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+    }
+
+    private async Task OnChangeAsync(ChangeEventArgs e)
+    {
+        if (ChildContent is not null)
+        {
+            return;
+        }
+
+        await PathChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+        await PathCommitted.InvokeAsync();
+    }
+
+    private async Task BrowseAsync(string? path)
+    {
+        var result = await SetupService.BrowseHostDirectoriesAsync(path);
+
+        if (result.IsSuccess)
+        {
+            listing = result.Value;
+            browseError = null;
+            return;
+        }
+
+        // A typed or previously saved path may no longer exist; still open the picker.
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            var roots = await SetupService.BrowseHostDirectoriesAsync(null);
+            if (roots.IsSuccess)
+            {
+                listing = roots.Value;
+                browseError = result.GetDisplayMessage();
+                return;
+            }
+        }
+
+        listing = null;
+        browseError = result.GetDisplayMessage();
+    }
+
+    private async Task ChoosePathAsync(string path)
+    {
+        listing = null;
+        browseError = null;
+        await PathChanged.InvokeAsync(path);
+        await PathCommitted.InvokeAsync();
+    }
+}

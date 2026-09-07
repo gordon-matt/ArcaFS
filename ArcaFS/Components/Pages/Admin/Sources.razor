@@ -167,10 +167,12 @@ else
                             <label class="form-label" for="src-name">Name</label>
                             <input id="src-name" class="form-control" @bind="form.Name" />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <label class="form-label" for="src-path">Folder on this machine</label>
-                            <input id="src-path" class="form-control font-monospace" @bind="form.Path"
-                                   @bind:event="oninput" @onblur="ProbePathAsync" />
+                            <HostFolderPicker @bind-Path="form.Path"
+                                              InputId="src-path"
+                                              UpdateOnInput="true"
+                                              PathCommitted="OnPathCommittedAsync" />
                             @if (probe is not null)
                             {
                                 <div class="form-text @(probe.Exists && probe.CanRead ? "text-success" : "text-danger")">

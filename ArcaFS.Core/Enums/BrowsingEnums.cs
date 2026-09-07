@@ -1,6 +1,6 @@
 namespace ArcaFS.Enums;
 
-/// <summary>Listing layouts offered by the file browser, mirroring File Browser Quantum.</summary>
+/// <summary>Listing layouts offered by the file browser.</summary>
 public enum ListingViewMode
 {
     /// <summary>Medium tiles with a thumbnail. The default.</summary>

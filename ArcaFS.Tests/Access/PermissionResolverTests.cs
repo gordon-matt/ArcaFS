@@ -5,8 +5,8 @@ using ArcaFS.Services.Access;
 namespace ArcaFS.Tests.Access;
 
 /// <summary>
-/// Behavioural spec for the permission model. The scenarios named after the File Browser Quantum
-/// discussion are the ones that motivated this design, so they are the ones that must not regress.
+/// Behavioural spec for the permission model. The shared-folder and per-user home scenarios
+/// are the ones that motivated this design, so they are the ones that must not regress.
 /// </summary>
 public class PermissionResolverTests
 {
@@ -220,12 +220,11 @@ public class PermissionResolverTests
         Assert.NotEmpty(PermissionResolver.Resolve(source, rules, User("alice"), "/", includeTrace: true).Trace);
     }
 
-    // ---- The scenarios from gtsteffaniak/filebrowser discussion #2336 ----
+    // ---- Shared-folder and per-user home scenarios ----
 
     /// <summary>
     /// "A shared folder for ONLY me to write, but everyone else can ONLY read." Two rules on one
-    /// source. In File Browser Quantum this needs either two mounts or a source-wide read-only
-    /// flag that also locks out the owner.
+    /// source, without a source-wide read-only flag that would also lock out the owner.
     /// </summary>
     [Fact]
     public void Scenario_SharedFolderWritableByOwnerReadOnlyForEveryoneElse()

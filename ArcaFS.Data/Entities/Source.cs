@@ -38,8 +38,8 @@ public class Source : BaseEntity<int>
 
     /// <summary>
     /// Whether members of <see cref="Constants.Roles.Administrator"/> skip rule evaluation.
-    /// On by default: File Browser Quantum's habit of locking admins out of their own
-    /// deny-by-default sources is a support burden, so opting into that is explicit here.
+    /// On by default so deny-by-default sources do not lock administrators out of their own
+    /// server. Opting into that lock is explicit.
     /// </summary>
     public bool AdministratorsBypassRules { get; set; } = true;
 

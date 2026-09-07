@@ -177,7 +177,7 @@ public sealed class FilesController(
             download.MimeType,
             fileDownloadName: renderInline ? null : download.FileName,
             lastModified: download.ModifiedAt,
-            entityTag: new EntityTagHeaderValue($"\"{download.ETag}\"", isWeak: true),
+            entityTag: HttpEntityTags.Weak(download.ETag),
             enableRangeProcessing: true);
     }
 

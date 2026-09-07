@@ -16,16 +16,24 @@ html, body {
     height: 100%;
 }
 
-body {
-    overflow: hidden; /* The content pane scrolls, not the page. */
+/* The file-browser shell owns scrolling. Standalone pages (setup, Identity, public shares)
+   must scroll with the document — otherwise they clip when the viewport shrinks, including
+   Firefox with DevTools docked at the bottom. 100vh does not shrink with the toolbox. */
+body:has(.arca-shell) {
+    overflow: hidden;
 }
 
 /* ---------------------------------------------------------------- shell */
 
 .arca-shell {
     display: flex;
-    height: 100vh;
+    height: 100%;
     overflow: hidden;
+}
+
+.arca-standalone {
+    min-height: 100%;
+    overflow: auto;
 }
 
 .arca-main {

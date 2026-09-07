@@ -70,7 +70,8 @@
         <div class="card-body">
             <p class="small text-body-secondary">
                 Start from a common layout, then edit the rules. The “shared, read-only except
-                for me” template is the one File Browser Quantum cannot do per user.
+                for me” template is two rules on one source — a source-wide read-only switch
+                cannot express that.
             </p>
             <div class="row g-3">
                 @foreach (var template in templates)
@@ -104,8 +105,10 @@
                                 </select>
                             }
                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="@($"tpl-replace-{template.Key}")"
-                                       @bind="replaceExisting" />
+                                <input class="form-check-input" type="checkbox"
+                                       id="@($"tpl-replace-{template.Key}")"
+                                       checked="@IsReplaceExisting(template.Key)"
+                                       @onchange="e => SetReplaceExisting(template.Key, (bool)e.Value!)" />
                                 <label class="form-check-label small" for="@($"tpl-replace-{template.Key}")">
                                     Replace existing rules
                                 </label>

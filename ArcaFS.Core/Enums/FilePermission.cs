@@ -5,10 +5,9 @@ namespace ArcaFS.Enums;
 /// <c>AccessRule.Permissions</c> and returned by the permission resolver as the *effective*
 /// grant for one (source, path, principal) triple.
 /// <para>
-/// Splitting these out per-path is the main behavioural difference from File Browser Quantum,
-/// where create/modify/delete are global per-user flags and a source can only be read-only for
-/// everyone at once. Here "shared folder writable by me, read-only for everyone else" is two
-/// rules on one source.
+/// Create, modify and delete are per path, not global per-user flags. A source is not
+/// limited to being read-only for everyone at once: "shared folder writable by me,
+/// read-only for everyone else" is two rules on one source.
 /// </para>
 /// </summary>
 [Flags]

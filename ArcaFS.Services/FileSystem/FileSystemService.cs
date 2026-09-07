@@ -335,8 +335,7 @@ public sealed partial class FileSystemService(
         ListingSortField sortBy,
         bool descending)
     {
-        // Directories lead regardless of the sort field, matching every file manager's
-        // convention and File Browser Quantum's behaviour specifically.
+        // Directories lead regardless of the sort field, matching every file manager.
         var ordered = items.OrderBy(i => i.IsDirectory ? 0 : 1);
 
         return sortBy switch

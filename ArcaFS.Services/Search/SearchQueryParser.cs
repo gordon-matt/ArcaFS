@@ -3,10 +3,10 @@ using System.Globalization;
 namespace ArcaFS.Services.Search;
 
 /// <summary>
-/// Parses File Browser Quantum's search syntax into a <see cref="SearchQuery"/>.
+/// Parses the search box syntax into a <see cref="SearchQuery"/>.
 /// </summary>
 /// <remarks>
-/// Supported forms, matching the original so existing habits carry over:
+/// Supported forms:
 /// <list type="bullet">
 /// <item><c>type:image</c>, <c>type:video</c>, <c>type:folder</c> — restrict by kind</item>
 /// <item><c>type:largerThan=50M</c>, <c>type:smallerThan=1G</c> — size bounds</item>

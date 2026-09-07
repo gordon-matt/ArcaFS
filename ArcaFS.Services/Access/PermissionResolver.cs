@@ -17,8 +17,8 @@ namespace ArcaFS.Services.Access;
 /// </list>
 /// <para>Because each rule only touches the bits in its own mask, a deny of <c>Delete</c> at a
 /// subfolder leaves an inherited <c>Create</c> intact. That is the property that makes
-/// "read-only for everyone except me, on this one source" expressible, which is what File
-/// Browser Quantum's global per-user flags and source-wide <c>readOnly</c> switch cannot do.</para>
+/// "read-only for everyone except me, on this one source" expressible without a source-wide
+/// lock that would also lock out the owner.</para>
 /// </remarks>
 public static class PermissionResolver
 {

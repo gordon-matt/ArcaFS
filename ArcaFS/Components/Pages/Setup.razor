@@ -110,8 +110,10 @@
             <div class="card mb-3">
                 <div class="card-header">Add your first source</div>
                 <div class="card-body">
-                    <EditForm Model="sourceModel" OnValidSubmit="CreateSourceAsync">
+                    <EditForm Model="sourceModel" OnValidSubmit="CreateSourceAsync"
+                              OnInvalidSubmit="OnSourceInvalid">
                         <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger small" />
 
                         <div class="mb-3">
                             <label class="form-label" for="setupSourceName">Name</label>
@@ -123,59 +125,13 @@
 
                         <div class="mb-3">
                             <label class="form-label" for="setupSourcePath">Folder on this server</label>
-                            <div class="input-group">
+                            <HostFolderPicker @bind-Path="sourceModel.Path"
+                                              PathCommitted="OnFolderChosen">
                                 <InputText id="setupSourcePath" class="form-control font-monospace"
                                            @bind-Value="sourceModel.Path" />
-                                <button type="button" class="btn btn-outline-secondary"
-                                        @onclick="() => BrowseAsync(null)">
-                                    <i class="bi bi-folder2-open"></i>
-                                </button>
-                            </div>
+                            </HostFolderPicker>
                             <ValidationMessage For="() => sourceModel.Path" class="text-danger small" />
                         </div>
-
-                        @if (hostListing is not null)
-                        {
-                            <div class="card mb-3">
-                                <div class="card-body p-2">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                disabled="@(hostListing.ParentPath is null)"
-                                                @onclick="() => BrowseAsync(hostListing.ParentPath)">
-                                            <i class="bi bi-arrow-up"></i>
-                                        </button>
-                                        <code class="small text-break">
-                                            @(hostListing.CurrentPath ?? "This server")
-                                        </code>
-                                        <button type="button" class="btn btn-sm btn-link ms-auto"
-                                                @onclick="() => hostListing = null">
-                                            Close
-                                        </button>
-                                    </div>
-
-                                    <div class="list-group list-group-flush"
-                                         style="max-height: 14rem; overflow-y: auto;">
-                                        @foreach (var directory in hostListing.CurrentPath is null
-                                            ? hostListing.Roots
-                                            : hostListing.Directories)
-                                        {
-                                            <div class="list-group-item d-flex align-items-center gap-2 py-1">
-                                                <button type="button"
-                                                        class="btn btn-sm btn-link text-decoration-none flex-grow-1 text-start"
-                                                        @onclick="() => BrowseAsync(directory.FullPath)">
-                                                    <i class="bi bi-folder-fill text-warning me-1"></i>
-                                                    @directory.Name
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                                        @onclick="() => ChoosePath(directory.FullPath)">
-                                                    Use
-                                                </button>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        }
 
                         <div class="form-check mb-2">
                             <InputCheckbox id="setupPerUser" class="form-check-input"
@@ -238,7 +194,6 @@
     private SetupStateDto? state;
     private bool isBusy;
     private string? errorMessage;
-    private HostDirectoryListingDto? hostListing;
 
     private readonly AdminModel adminModel = new();
     private readonly SourceModel sourceModel = new();
@@ -255,24 +210,34 @@
         isBusy = true;
         errorMessage = null;
 
-        var result = await SetupService.CreateAdministratorAsync(new SetupAdminRequest
+        try
         {
-            UserName = adminModel.UserName,
-            Email = adminModel.Email,
-            Password = adminModel.Password,
-        });
+            var result = await SetupService.CreateAdministratorAsync(new SetupAdminRequest
+            {
+                UserName = adminModel.UserName,
+                Email = adminModel.Email,
+                Password = adminModel.Password,
+            });
 
-        isBusy = false;
+            if (!result.IsSuccess)
+            {
+                errorMessage = Describe(result, "The account could not be created.");
+                return;
+            }
 
-        if (!result.IsSuccess)
-        {
-            errorMessage = Describe(result, "The account could not be created.");
-            return;
+            // A full reload, so the new sign-in cookie and the authentication state are picked up
+            // rather than the circuit continuing as an anonymous visitor.
+            Navigation.NavigateTo("/setup", forceLoad: true);
         }
+        finally
+        {
+            isBusy = false;
+        }
+    }
 
-        // A full reload, so the new sign-in cookie and the authentication state are picked up
-        // rather than the circuit continuing as an anonymous visitor.
-        Navigation.NavigateTo("/setup", forceLoad: true);
+    private void OnSourceInvalid()
+    {
+        errorMessage = "Enter a name and a folder that exists on this machine.";
     }
 
     private async Task CreateSourceAsync()
@@ -280,24 +245,28 @@
         isBusy = true;
         errorMessage = null;
 
-        var result = await SetupService.CreateFirstSourceAsync(new SetupSourceRequest
+        try
         {
-            Name = sourceModel.Name,
-            Path = sourceModel.Path,
-            UsePerUserDirectories = sourceModel.UsePerUserDirectories,
-            IsReadOnly = sourceModel.IsReadOnly,
-        });
+            var result = await SetupService.CreateFirstSourceAsync(new SetupSourceRequest
+            {
+                Name = sourceModel.Name,
+                Path = sourceModel.Path,
+                UsePerUserDirectories = sourceModel.UsePerUserDirectories,
+                IsReadOnly = sourceModel.IsReadOnly,
+            });
 
-        isBusy = false;
+            if (!result.IsSuccess)
+            {
+                errorMessage = Describe(result, "The source could not be created.");
+                return;
+            }
 
-        if (!result.IsSuccess)
-        {
-            errorMessage = Describe(result, "The source could not be created.");
-            return;
+            await RefreshStateAsync();
         }
-
-        hostListing = null;
-        await RefreshStateAsync();
+        finally
+        {
+            isBusy = false;
+        }
     }
 
     private async Task CompleteAsync()
@@ -317,32 +286,16 @@
         Navigation.NavigateTo("/", forceLoad: true);
     }
 
-    private async Task BrowseAsync(string? path)
+    private void OnFolderChosen()
     {
-        var result = await SetupService.BrowseHostDirectoriesAsync(path);
-
-        if (result.IsSuccess)
-        {
-            hostListing = result.Value;
-            errorMessage = null;
-        }
-        else
-        {
-            errorMessage = Describe(result, "That folder could not be listed.");
-        }
-    }
-
-    private void ChoosePath(string path)
-    {
-        sourceModel.Path = path;
-
-        if (string.IsNullOrWhiteSpace(sourceModel.Name))
+        if (string.IsNullOrWhiteSpace(sourceModel.Name)
+            && !string.IsNullOrWhiteSpace(sourceModel.Path))
         {
             // A sensible default beats an empty required field; the admin can still change it.
-            sourceModel.Name = new DirectoryInfo(path).Name is { Length: > 0 } name ? name : "Files";
+            sourceModel.Name = new DirectoryInfo(sourceModel.Path).Name is { Length: > 0 } name
+                ? name
+                : "Files";
         }
-
-        hostListing = null;
     }
 
     private static string Describe(Ardalis.Result.IResult result, string fallback) =>
