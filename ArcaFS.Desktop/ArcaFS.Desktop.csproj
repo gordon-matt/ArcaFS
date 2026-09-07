@@ -61,6 +61,7 @@
 	<ItemGroup>
 		<Content Include="..\ArcaFS\Components\**\*.razor" Link="Components\%(RecursiveDir)%(Filename)%(Extension)" />
 		<Content Include="..\ArcaFS\Components\**\*.cshtml" Link="Components\%(RecursiveDir)%(Filename)%(Extension)" />
+		<Content Include="..\ArcaFS\Areas\**\*.cshtml" Link="Areas\%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>
 
 	<ItemGroup>

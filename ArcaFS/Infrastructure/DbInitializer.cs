@@ -114,7 +114,13 @@ public static class DbInitializer
         }
 
         string email = configuration["Seed:Admin:Email"] ?? "admin@arcafs.local";
-        string userName = configuration["Seed:Admin:UserName"] ?? email;
+        // Identity's default login field is labelled Email but PasswordSignInAsync looks up a
+        // user name. We still honour Seed:Admin:UserName for display / ${username} tokens;
+        // Login.cshtml accepts either value. Default the user name to the email so a config
+        // that only sets Email still works with an un-overridden Identity UI.
+        string userName = configuration["Seed:Admin:UserName"] is { Length: > 0 } configuredName
+            ? configuredName
+            : email;
 
         var user = new ApplicationUser
         {
