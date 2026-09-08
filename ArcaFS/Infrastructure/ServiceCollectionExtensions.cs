@@ -283,6 +283,17 @@ public static class ServiceCollectionExtensions
                         // IsInRole("Administrator") check would fail and the app would look
                         // like it had lost its admin.
                         MapKeycloakRoles(context.Principal);
+                        EnsureNameIdentifier(context.Principal);
+
+                        return Task.CompletedTask;
+                    },
+
+                    OnUserInformationReceived = context =>
+                    {
+                        // Userinfo is merged after token validation and can drop the claims we
+                        // just copied. Re-apply so Blazor still sees a NameIdentifier and roles.
+                        MapKeycloakRoles(context.Principal);
+                        EnsureNameIdentifier(context.Principal);
 
                         return Task.CompletedTask;
                     },
@@ -329,10 +340,34 @@ public static class ServiceCollectionExtensions
 
         foreach (string role in roleNames)
         {
-            if (!identity.HasClaim(ClaimTypes.Role, role))
+            if (!identity.HasClaim(ClaimTypes.Role, role)
+                && !identity.HasClaim(identity.RoleClaimType, role))
             {
-                identity.AddClaim(new Claim(ClaimTypes.Role, role));
+                identity.AddClaim(new Claim(identity.RoleClaimType, role));
+                if (identity.RoleClaimType != ClaimTypes.Role)
+                {
+                    identity.AddClaim(new Claim(ClaimTypes.Role, role));
+                }
             }
+        }
+    }
+
+    /// <summary>
+    /// Keycloak's stable user id is <c>sub</c>. Copy it onto NameIdentifier when inbound claim
+    /// mapping did not, so access rules and <c>IUserContextService</c> see the same value.
+    /// </summary>
+    private static void EnsureNameIdentifier(ClaimsPrincipal? principal)
+    {
+        if (principal?.Identity is not ClaimsIdentity identity
+            || identity.HasClaim(c => c.Type == ClaimTypes.NameIdentifier))
+        {
+            return;
+        }
+
+        string? sub = identity.FindFirst("sub")?.Value;
+        if (!string.IsNullOrWhiteSpace(sub))
+        {
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, sub));
         }
     }
 

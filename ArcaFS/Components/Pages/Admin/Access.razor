@@ -56,6 +56,11 @@
         @if (selectedSource.IsReadOnly)
         {
             <span class="arca-chip ms-1">Host read-only</span>
+            <span class="d-block mt-2">
+                Clamp to read-only strips write permission from everyone, including administrators
+                and the nominated owner. Turn it off on the source, or re-apply a template that
+                grants write access — that now clears the clamp.
+            </span>
         }
         @if (!string.IsNullOrWhiteSpace(selectedSource.DefaultUserScope))
         {

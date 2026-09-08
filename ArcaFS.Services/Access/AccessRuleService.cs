@@ -192,6 +192,14 @@ public sealed class AccessRuleService(
             return Result.Invalid(new ValidationError(nameof(templateKey), $"Unknown template '{templateKey}'."));
         }
 
+        if (templateKey == AccessTemplates.SharedReadOnlyOwnerWrites
+            && string.IsNullOrWhiteSpace(subjectId))
+        {
+            return Result.Invalid(new ValidationError(
+                nameof(subjectId),
+                "Select the user who can write, or sign in so the current user can be used."));
+        }
+
         if (replaceExisting)
         {
             var existing = await ruleRepository.FindAsync(new SearchOptions<AccessRule>
@@ -230,17 +238,8 @@ public sealed class AccessRuleService(
 
         // The template's rules only make sense alongside its baseline, so apply that too rather
         // than leaving the admin with a half-configured source.
-        if (template.RequiresDenyByDefault && !source.DenyByDefault)
+        if (AccessTemplates.ApplySourceSettings(source, template))
         {
-            source.DenyByDefault = true;
-            await sourceRepository.UpdateAsync(source);
-        }
-
-        if (templateKey == AccessTemplates.PerUserHomeDirectories
-            && string.IsNullOrWhiteSpace(source.DefaultUserScope))
-        {
-            source.DefaultUserScope = "/" + Constants.PathTokens.UserName;
-            source.CreateUserDirectory = true;
             await sourceRepository.UpdateAsync(source);
         }
 

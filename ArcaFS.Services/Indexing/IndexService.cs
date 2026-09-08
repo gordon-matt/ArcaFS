@@ -119,6 +119,14 @@ public sealed class IndexService(
                 source.Name,
                 source.Path);
 
+            await activityService.RecordAsync(
+                ActivityKind.IndexScan,
+                sourceId,
+                Constants.RootPath,
+                succeeded: false,
+                detail: $"'{source.Path}' does not exist.",
+                cancellationToken: cancellationToken);
+
             return Result<IndexScanResultDto>.Error($"'{source.Path}' does not exist.");
         }
 
@@ -189,14 +197,6 @@ public sealed class IndexService(
                 FileKinds.FormatSize(totalBytes),
                 elapsed.TotalSeconds,
                 removed.Count);
-
-            await activityService.RecordAsync(
-                ActivityKind.IndexScan,
-                sourceId,
-                Constants.RootPath,
-                sizeBytes: totalBytes,
-                detail: $"{fileCount} files, {directoryCount} folders in {elapsed.TotalSeconds:0.0}s",
-                cancellationToken: cancellationToken);
 
             return Result<IndexScanResultDto>.Success(new IndexScanResultDto(
                 sourceId,

@@ -39,7 +39,7 @@ public partial class Access
         sources = sourceResult.IsSuccess ? sourceResult.Value : [];
 
         users = await UserInfoService.GetAllUsersAsync();
-        simulateUserId = UserContext.GetCurrentUserId();
+        simulateUserId = UserContext.GetCurrentUserId() ?? UserContext.GetCurrentUserName();
 
         var groupResult = await AccessGroupService.ListAsync();
         groups = groupResult.IsSuccess ? groupResult.Value : [];
@@ -183,7 +183,7 @@ public partial class Access
             {
                 AccessTemplates.SharedReadOnlyOwnerWrites =>
                     string.IsNullOrWhiteSpace(templateOwnerUserId)
-                        ? UserContext.GetCurrentUserId()
+                        ? UserContext.GetCurrentUserId() ?? UserContext.GetCurrentUserName()
                         : templateOwnerUserId,
                 AccessTemplates.GroupWorkspace => templateGroupId,
                 _ => UserContext.GetCurrentUserId(),

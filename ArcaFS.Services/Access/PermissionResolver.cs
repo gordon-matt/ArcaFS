@@ -258,8 +258,14 @@ public static class PermissionResolver
             // what confines the grant to that user's own directory.
             AccessSubjectType.Owner => principal.IsAuthenticated,
 
-            AccessSubjectType.User => rule.SubjectId is not null
-                && string.Equals(rule.SubjectId, principal.UserId, StringComparison.Ordinal),
+            AccessSubjectType.User => principal.IsAuthenticated
+                && rule.SubjectId is not null
+                && (string.Equals(rule.SubjectId, principal.UserId, StringComparison.Ordinal)
+                    || (!string.IsNullOrEmpty(principal.UserName)
+                        && string.Equals(
+                            rule.SubjectId,
+                            principal.UserName,
+                            StringComparison.OrdinalIgnoreCase))),
 
             _ => false,
         };

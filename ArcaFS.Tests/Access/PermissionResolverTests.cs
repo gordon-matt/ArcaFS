@@ -352,6 +352,39 @@ public class PermissionResolverTests
     }
 
     [Fact]
+    public void UserRule_MatchesUserNameWhenKeycloakIdDiffers()
+    {
+        var source = NewSource(denyByDefault: true, administratorsBypassRules: false);
+        var rules = new[]
+        {
+            Rule(AccessSubjectType.User, "matt", AccessEffect.Allow, FilePermission.Editor),
+        };
+
+        var principal = new AccessPrincipal
+        {
+            UserId = "a1b2c3d4-from-keycloak",
+            UserName = "matt",
+            IsAuthenticated = true,
+        };
+
+        var result = PermissionResolver.Resolve(source, rules, principal, "/");
+
+        Assert.True(result.Has(FilePermission.Create));
+    }
+
+    [Fact]
+    public void ReadOnlySource_ClampsAdministratorBypass()
+    {
+        var source = NewSource(isReadOnly: true, administratorsBypassRules: true);
+
+        var result = PermissionResolver.Resolve(source, [], Admin(), "/");
+
+        Assert.False(result.Has(FilePermission.Create));
+        Assert.True(result.IsClampedByReadOnlySource);
+        Assert.True(result.Has(FilePermission.Browse));
+    }
+
+    [Fact]
     public void FilterForSubtree_KeepsAncestorsAndDescendantsOnly()
     {
         var rules = new[]

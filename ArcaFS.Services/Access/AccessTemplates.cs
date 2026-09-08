@@ -37,7 +37,8 @@ public static class AccessTemplates
                 },
             ],
             RequiresDenyByDefault: true,
-            SuggestedSourceDefault: FilePermission.None),
+            SuggestedSourceDefault: FilePermission.None,
+            ClearsHostReadOnly: true),
 
         new(
             SharedReadOnlyOwnerWrites,
@@ -77,7 +78,8 @@ public static class AccessTemplates
                     },
                 ],
             RequiresDenyByDefault: false,
-            SuggestedSourceDefault: FilePermission.None),
+            SuggestedSourceDefault: FilePermission.None,
+            ClearsHostReadOnly: true),
 
         new(
             PublicDropBox,
@@ -107,7 +109,8 @@ public static class AccessTemplates
                 },
             ],
             RequiresDenyByDefault: true,
-            SuggestedSourceDefault: FilePermission.None),
+            SuggestedSourceDefault: FilePermission.None,
+            ClearsHostReadOnly: true),
 
         new(
             GroupWorkspace,
@@ -127,7 +130,8 @@ public static class AccessTemplates
                 },
             ],
             RequiresDenyByDefault: true,
-            SuggestedSourceDefault: FilePermission.None),
+            SuggestedSourceDefault: FilePermission.None,
+            ClearsHostReadOnly: true),
 
         new(
             LockedDown,
@@ -138,4 +142,46 @@ public static class AccessTemplates
             RequiresDenyByDefault: true,
             SuggestedSourceDefault: FilePermission.None),
     ];
+
+    /// <summary>
+    /// Applies the template's source-level defaults. The rules alone are not enough: a host-level
+    /// read-only clamp would still strip write bits from the nominated owner, and a leftover
+    /// default of Full would leave everyone else able to write.
+    /// </summary>
+    public static bool ApplySourceSettings(Source source, AccessTemplateDto template)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(template);
+
+        bool changed = false;
+
+        if (template.RequiresDenyByDefault && !source.DenyByDefault)
+        {
+            source.DenyByDefault = true;
+            changed = true;
+        }
+
+        if (template.SuggestedSourceDefault is { } suggested
+            && source.DefaultPermissions != suggested)
+        {
+            source.DefaultPermissions = suggested;
+            changed = true;
+        }
+
+        if (template.ClearsHostReadOnly && source.IsReadOnly)
+        {
+            source.IsReadOnly = false;
+            changed = true;
+        }
+
+        if (template.Key == PerUserHomeDirectories
+            && string.IsNullOrWhiteSpace(source.DefaultUserScope))
+        {
+            source.DefaultUserScope = "/" + Constants.PathTokens.UserName;
+            source.CreateUserDirectory = true;
+            changed = true;
+        }
+
+        return changed;
+    }
 }

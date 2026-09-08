@@ -55,22 +55,31 @@ public sealed class PermissionService(
 
     private async Task<AccessPrincipal> LoadCurrentPrincipalAsync(CancellationToken cancellationToken)
     {
-        string? userId = userContext.GetCurrentUserId();
-        if (!userContext.IsAuthenticated() || string.IsNullOrEmpty(userId))
+        if (!userContext.IsAuthenticated())
         {
             return currentPrincipal = AccessPrincipal.Anonymous;
         }
 
-        var groupIds = (await groupMemberRepository.FindAsync(new SearchOptions<AccessGroupMember>
-        {
-            Query = m => m.UserId == userId,
-            CancellationToken = cancellationToken,
-        })).Select(m => m.AccessGroupId).ToHashSet();
+        // Keycloak sometimes omits NameIdentifier and only sends `sub`. An authenticated
+        // administrator must still be treated as signed in — collapsing them to Anonymous
+        // would strip write access even when they bypass rules.
+        string? userId = userContext.GetCurrentUserId();
+        string? userName = userContext.GetCurrentUserName();
+
+        var groupIds = string.IsNullOrEmpty(userId)
+            ? new HashSet<int>()
+            : (await groupMemberRepository.FindAsync(new SearchOptions<AccessGroupMember>
+            {
+                Query = m => m.UserId == userId,
+                CancellationToken = cancellationToken,
+            })).Select(m => m.AccessGroupId).ToHashSet();
 
         // The global share switch lives on the Identity row rather than in the ACL so it can be
         // revoked in one place; it becomes a ceiling the rules can't lift.
         var ceiling = FilePermission.Full;
-        var user = await FindLocalUserAsync(userId, cancellationToken);
+        var user = string.IsNullOrEmpty(userId)
+            ? null
+            : await FindLocalUserAsync(userId, cancellationToken);
 
         if (user is not null && !user.CanCreateShares)
         {
@@ -79,8 +88,8 @@ public sealed class PermissionService(
 
         return currentPrincipal = new AccessPrincipal
         {
-            UserId = userId,
-            UserName = user?.UserName ?? userContext.GetCurrentUserName(),
+            UserId = userId ?? userName,
+            UserName = user?.UserName ?? userName,
             DisplayName = user?.DisplayName,
             IsAuthenticated = true,
             IsAdministrator = userContext.IsAdministrator(),
@@ -463,11 +472,11 @@ public sealed class PermissionService(
 
         if (userIds.Count > 0)
         {
-            var users = await FindLocalUsersAsync(userIds, cancellationToken);
+            var users = await userInfoService.GetUserInfoAsync(userIds, cancellationToken);
 
-            foreach (var user in users)
+            foreach (var (id, info) in users)
             {
-                names[user.Id] = user.DisplayName ?? user.UserName ?? user.Id;
+                names[id] = info.Label;
             }
         }
 
@@ -529,16 +538,6 @@ public sealed class PermissionService(
         await using var context = (ApplicationDbContextBase)dbContextFactory.GetContext();
         return await context.Users.AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-    }
-
-    private async Task<List<ApplicationUser>> FindLocalUsersAsync(
-        IReadOnlyCollection<string> userIds,
-        CancellationToken cancellationToken)
-    {
-        await using var context = (ApplicationDbContextBase)dbContextFactory.GetContext();
-        return await context.Users.AsNoTracking()
-            .Where(u => userIds.Contains(u.Id))
-            .ToListAsync(cancellationToken);
     }
 
     private static string Describe(FilePermission missing) =>

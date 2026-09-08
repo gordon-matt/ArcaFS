@@ -14,25 +14,49 @@ public sealed class BlazorAwareUserContextService(
     IHttpContextAccessor httpContextAccessor,
     AuthenticationStateProvider authenticationStateProvider) : IUserContextService
 {
-    public string? GetCurrentUserId() => ResolvePrincipal()?.FindFirstValue(ClaimTypes.NameIdentifier);
+    public string? GetCurrentUserId() => ResolvePrincipal().FindUserId();
 
     public string? GetCurrentUserName() => ResolvePrincipal()?.Identity?.Name;
 
     public bool IsAuthenticated() => ResolvePrincipal()?.Identity?.IsAuthenticated ?? false;
 
-    public bool IsAdministrator() => ResolvePrincipal()?.IsInRole(Constants.Roles.Administrator) ?? false;
+    public bool IsAdministrator()
+    {
+        var user = ResolvePrincipal();
+        if (user is null)
+        {
+            return false;
+        }
+
+        return user.IsInRole(Constants.Roles.Administrator)
+            || GetRoleNames().Contains(Constants.Roles.Administrator, StringComparer.OrdinalIgnoreCase);
+    }
 
     public IReadOnlyList<string> GetRoleNames()
     {
         var user = ResolvePrincipal();
+        if (user is null)
+        {
+            return [];
+        }
 
-        return user is null
-            ? []
-            : user.Claims
-                .Where(c => c.Type == ClaimTypes.Role)
-                .Select(c => c.Value)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+        var types = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ClaimTypes.Role,
+            "role",
+            "roles",
+        };
+
+        if (user.Identity is ClaimsIdentity identity)
+        {
+            types.Add(identity.RoleClaimType);
+        }
+
+        return user.Claims
+            .Where(c => types.Contains(c.Type))
+            .Select(c => c.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private ClaimsPrincipal? ResolvePrincipal()

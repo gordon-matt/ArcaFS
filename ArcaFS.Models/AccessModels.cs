@@ -114,4 +114,5 @@ public record AccessTemplateDto(
     string Description,
     IReadOnlyList<CreateAccessRuleRequest> Rules,
     bool RequiresDenyByDefault,
-    FilePermission? SuggestedSourceDefault);
+    FilePermission? SuggestedSourceDefault,
+    bool ClearsHostReadOnly = false);

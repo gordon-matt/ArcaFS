@@ -138,7 +138,7 @@ public sealed class KeycloakUserInfoService(
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {
             logger.LogWarning(
-                "Keycloak user listing needs AdminClientId/AdminClientSecret (or ClientId/ClientSecret) with the realm-management role");
+                "Keycloak user listing needs AdminClientId/AdminClientSecret (or ClientId/ClientSecret) with the realm-management role view-users");
             return null;
         }
 
