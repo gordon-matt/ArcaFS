@@ -135,7 +135,16 @@ public sealed class PermissionService(
         }
 
         string scope = ResolveScope(source, principal);
-        EnsureUserHomeDirectory(source, scope);
+        scope = UserHomePath.AlignScopeWithExistingDirectory(
+            source.Path,
+            scope,
+            userName: principal.UserName,
+            displayName: principal.DisplayName);
+
+        if (!TryEnsureUserHomeDirectory(source, scope, out string? homeError))
+        {
+            return Result<ResolvedPath>.Invalid(new ValidationError(nameof(virtualPath), homeError!));
+        }
 
         string scoped = VirtualPath.Normalize(virtualPath);
         string absolute = scope == Constants.RootPath
@@ -332,6 +341,7 @@ public sealed class PermissionService(
     /// <summary>
     /// The caller's starting directory in a source, with <c>${username}</c> expanded. Everything
     /// they browse is relative to this, so a scoped user can't even name a path outside it.
+    /// Token expansion only — no disk I/O — so the sidebar cannot hang enumerating a NAS folder.
     /// </summary>
     private static string ResolveScope(Source source, AccessPrincipal principal)
     {
@@ -352,35 +362,36 @@ public sealed class PermissionService(
             return Constants.RootPath;
         }
 
-        string normalized = VirtualPath.Normalize(expanded);
-
-        return UserHomePath.AlignScopeWithExistingDirectory(
-            source.Path,
-            normalized,
-            userName: principal.UserName,
-            displayName: principal.DisplayName);
+        return VirtualPath.Normalize(expanded);
     }
 
     /// <summary>
     /// Creates the caller's home folder when the source is configured to do so. Without this,
     /// the first visit to a per-user source is a 404 until someone makes the directory by hand.
     /// </summary>
-    private void EnsureUserHomeDirectory(Source source, string scope)
+    private bool TryEnsureUserHomeDirectory(Source source, string scope, out string? error)
     {
+        error = null;
+
         if (!source.CreateUserDirectory || scope == Constants.RootPath)
         {
-            return;
+            return true;
         }
 
-        if (!VirtualPath.TryResolve(source.Path, scope, out string? homePhysical)
-            || Directory.Exists(homePhysical))
+        if (!VirtualPath.TryResolve(source.Path, scope, out string? homePhysical))
         {
-            return;
+            return true;
+        }
+
+        if (Directory.Exists(homePhysical))
+        {
+            return true;
         }
 
         try
         {
             Directory.CreateDirectory(homePhysical);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -389,6 +400,12 @@ public sealed class PermissionService(
                 "Could not create home directory {Physical} for source {SourceId}",
                 homePhysical,
                 source.Id);
+
+            error =
+                $"Could not create the user folder '{homePhysical}'. " +
+                "The process inside the container must be able to write there — " +
+                "a share ACL on the NAS is not enough if this folder is bind-mounted.";
+            return false;
         }
     }
 

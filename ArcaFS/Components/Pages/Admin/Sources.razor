@@ -255,12 +255,19 @@ else
                             </div>
                         </div>
                         <div class="col-md-6 d-flex align-items-end">
-                            <div class="form-check mb-2">
-                                <input id="src-homedir" class="form-check-input" type="checkbox"
-                                       @bind="form.CreateUserDirectory" />
-                                <label class="form-check-label" for="src-homedir">
-                                    Create the user folder if missing
-                                </label>
+                            <div class="mb-2">
+                                <div class="form-check">
+                                    <input id="src-homedir" class="form-check-input" type="checkbox"
+                                           @bind="form.CreateUserDirectory"
+                                           @bind:after="OnCreateUserDirectoryChanged" />
+                                    <label class="form-check-label" for="src-homedir">
+                                        Create the user folder if missing
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Created on first visit, by the process inside the container.
+                                    A DSM “everyone” ACL on the share is not enough for a bind mount.
+                                </div>
                             </div>
                         </div>
 

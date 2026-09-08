@@ -66,6 +66,14 @@ public partial class Sources
         await ProbePathAsync();
     }
 
+    private void OnCreateUserDirectoryChanged()
+    {
+        if (form.CreateUserDirectory && string.IsNullOrWhiteSpace(form.DefaultUserScope))
+        {
+            form.DefaultUserScope = "/" + Constants.PathTokens.UserName;
+        }
+    }
+
     private async Task ProbePathAsync()
     {
         if (string.IsNullOrWhiteSpace(form.Path))
