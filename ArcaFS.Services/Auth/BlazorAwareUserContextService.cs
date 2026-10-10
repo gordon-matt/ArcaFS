@@ -20,43 +20,19 @@ public sealed class BlazorAwareUserContextService(
 
     public bool IsAuthenticated() => ResolvePrincipal()?.Identity?.IsAuthenticated ?? false;
 
-    public bool IsAdministrator()
-    {
-        var user = ResolvePrincipal();
-        if (user is null)
-        {
-            return false;
-        }
-
-        return user.IsInRole(Constants.Roles.Administrator)
-            || GetRoleNames().Contains(Constants.Roles.Administrator, StringComparer.OrdinalIgnoreCase);
-    }
+    public bool IsAdministrator() => ResolvePrincipal()?.IsInRole(Constants.Roles.Administrator) ?? false;
 
     public IReadOnlyList<string> GetRoleNames()
     {
         var user = ResolvePrincipal();
-        if (user is null)
-        {
-            return [];
-        }
 
-        var types = new HashSet<string>(StringComparer.Ordinal)
-        {
-            ClaimTypes.Role,
-            "role",
-            "roles",
-        };
-
-        if (user.Identity is ClaimsIdentity identity)
-        {
-            types.Add(identity.RoleClaimType);
-        }
-
-        return user.Claims
-            .Where(c => types.Contains(c.Type))
-            .Select(c => c.Value)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return user is null
+            ? []
+            : user.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
     }
 
     private ClaimsPrincipal? ResolvePrincipal()

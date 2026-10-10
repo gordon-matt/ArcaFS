@@ -64,9 +64,26 @@ public sealed class KeycloakUserInfoService(
             using var client = httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            var users = await client.GetFromJsonAsync<List<KeycloakUser>>(
+            using var response = await client.GetAsync(
                 $"{baseUrl}/admin/realms/{realm}/users?max={MaxUsers}",
                 cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                // 403 here almost always means the service account is missing a
+                // realm-management role. Listing needs both view-users and query-users —
+                // Keycloak treats "search for users" and "see user details" as separate grants.
+                string body = await response.Content.ReadAsStringAsync(cancellationToken);
+                logger.LogWarning(
+                    "Keycloak user listing failed with {StatusCode} for realm '{Realm}'. The service "
+                        + "account needs the realm-management roles view-users AND query-users. Response: {Body}",
+                    (int)response.StatusCode,
+                    realm,
+                    Truncate(body));
+                return [];
+            }
+
+            var users = await response.Content.ReadFromJsonAsync<List<KeycloakUser>>(cancellationToken);
 
             return users is null
                 ? []
@@ -87,6 +104,8 @@ public sealed class KeycloakUserInfoService(
             return [];
         }
     }
+
+    private static string Truncate(string value) => value.Length <= 500 ? value : value[..500];
 
     public async Task<UserInfo?> GetUserAsync(string userId, CancellationToken cancellationToken = default)
     {
@@ -138,7 +157,8 @@ public sealed class KeycloakUserInfoService(
         if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
         {
             logger.LogWarning(
-                "Keycloak user listing needs AdminClientId/AdminClientSecret (or ClientId/ClientSecret) with the realm-management role view-users");
+                "Keycloak user listing needs AdminClientId/AdminClientSecret (or ClientId/ClientSecret) with "
+                    + "the realm-management roles view-users and query-users");
             return null;
         }
 
@@ -159,10 +179,12 @@ public sealed class KeycloakUserInfoService(
 
             if (!response.IsSuccessStatusCode)
             {
+                string body = await response.Content.ReadAsStringAsync(cancellationToken);
                 logger.LogWarning(
-                    "Keycloak token request failed with {StatusCode} for realm '{Realm}'",
+                    "Keycloak token request failed with {StatusCode} for realm '{Realm}'. Response: {Body}",
                     (int)response.StatusCode,
-                    realm);
+                    realm,
+                    Truncate(body));
                 return null;
             }
 

@@ -54,7 +54,13 @@ The desktop build forces **SQLite + no authentication** and opens the signed-in 
 dotnet run --project ArcaFS.Desktop
 ```
 
-Packaging an installer uses [ElectronNET](https://github.com/ElectronNET/Electron.NET) (`electronize`).
+Build a Windows installer from the repo root (requires the .NET 10 SDK and Node.js 22+):
+
+```powershell
+.\create-installer-win.ps1
+```
+
+The NSIS installer is written to `ArcaFS.Desktop\publish\Release\net10.0\win-x64\`. Packaging is a self-contained `dotnet publish` (profile `win-x64`); ElectronNET.Core then runs electron-builder. The older `electronize` CLI is not used.
 
 ## Permissions
 

@@ -276,6 +276,25 @@ public static class ServiceCollectionExtensions
                         return Task.CompletedTask;
                     },
 
+                    // Sign-out needs the same rewrite as sign-in: behind a reverse proxy, the
+                    // request's own scheme/host does not always match the address Keycloak's
+                    // client has registered under "Valid post logout redirect URIs". Without
+                    // this, Keycloak silently refuses to redirect back and the user is stuck on
+                    // Keycloak's page — the local cookie is already cleared by then, so signing
+                    // in again looks like nothing happened until a second sign-out completes
+                    // the round trip.
+                    OnRedirectToIdentityProviderForSignOut = context =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(publicOrigin))
+                        {
+                            context.ProtocolMessage.PostLogoutRedirectUri = RewriteOrigin(
+                                context.ProtocolMessage.PostLogoutRedirectUri,
+                                publicOrigin);
+                        }
+
+                        return Task.CompletedTask;
+                    },
+
                     OnTokenValidated = context =>
                     {
                         // Keycloak puts realm roles in a nested "realm_access.roles" claim,
