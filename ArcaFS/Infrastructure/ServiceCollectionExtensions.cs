@@ -112,8 +112,7 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Wires up whichever authentication provider is configured and returns which one it was,
-    /// so <c>Program.cs</c> can make the handful of decisions that depend on it (Sejil's scheme,
-    /// whether to map Identity's Razor Pages, what the seeder should do).
+    /// so <c>Program.cs</c> can decide whether to map Identity's Razor Pages and what the seeder should do.
     /// </summary>
     public static AuthProvider AddArcaFsAuthentication(
         this IServiceCollection services,

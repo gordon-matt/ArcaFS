@@ -1,27 +1,23 @@
 using ArcaFS.Components;
 using ArcaFS.Infrastructure;
 using Hangfire;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using LogVue;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
-using Sejil;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog is configured before the host is built so startup failures — a bad connection string,
-// a missing migration — are logged rather than lost.
-Log.Logger = new LoggerConfiguration()
+builder.Services.AddLogVue(options =>
+    builder.Configuration.GetSection(LogVueOptions.SectionName).Bind(options));
+
+builder.Services.AddSerilog((services, configuration) => configuration
     .MinimumLevel.Information()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.ArcaFsDatabase(builder.Configuration)
-    .CreateLogger();
-
-builder.Host.UseSerilog();
-builder.Host.UseSejil(writeToProviders: true);
+    .WriteTo.LogVue(services));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -57,15 +53,6 @@ var authProvider = builder.Services.AddArcaFsAuthentication(builder.Configuratio
 // Registered after authentication because several services depend on IUserContextService, and
 // which implementation that is depends on the auth mode.
 builder.Services.AddArcaFsServices(builder.Configuration, databaseProvider);
-
-// Sejil's dashboard has no authorization of its own, so it is pointed at whichever scheme is
-// active. The admin-only restriction is applied by the endpoint filter further down.
-builder.Services.ConfigureSejil(options => options.AuthenticationScheme = authProvider switch
-{
-    AuthProvider.Keycloak => CookieAuthenticationDefaults.AuthenticationScheme,
-    AuthProvider.Identity => IdentityConstants.ApplicationScheme,
-    _ => NoneAuthenticationHandler.SchemeName,
-});
 
 builder.Services.AddArcaFsHangfire(builder.Configuration);
 
@@ -106,7 +93,10 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseSejil();
+app.MapLogVue().RequireAuthorization(new AuthorizeAttribute
+{
+    Roles = ArcaFS.Constants.Roles.Administrator
+});
 
 app.UseMiddleware<SetupRedirectMiddleware>();
 

@@ -1,10 +1,11 @@
+using ArcaFS.Desktop;
+using ArcaFS.Infrastructure;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Hangfire;
-using Sejil;
+using LogVue;
+using Microsoft.AspNetCore.Authorization;
 using Serilog;
-using ArcaFS.Desktop;
-using ArcaFS.Infrastructure;
 
 // Desktop entry point. The web/Docker entry point (ArcaFS/Program.cs) stays separate.
 //
@@ -48,17 +49,24 @@ builder.Configuration.AddInMemoryCollection(overrides);
 
 Directory.CreateDirectory(Path.Combine(appDataDir, "logs"));
 
+string logFile = Path.Combine(appDataDir, "logs", "arcafs-.log");
+
 Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .WriteTo.File(logFile, rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+builder.Services.AddLogVue(options =>
+    builder.Configuration.GetSection(LogVueOptions.SectionName).Bind(options));
+
+builder.Services.AddSerilog((services, configuration) => configuration
     .MinimumLevel.Information()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File(Path.Combine(appDataDir, "logs", "arcafs-.log"), rollingInterval: RollingInterval.Day)
-    .WriteTo.ArcaFsDatabase(builder.Configuration)
-    .CreateLogger();
-
-builder.Host.UseSerilog();
-builder.Host.UseSejil(writeToProviders: true);
+    .WriteTo.File(logFile, rollingInterval: RollingInterval.Day)
+    .WriteTo.LogVue(services));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -85,9 +93,6 @@ var authProvider = builder.Services.AddArcaFsAuthentication(builder.Configuratio
 
 builder.Services.AddArcaFsServices(builder.Configuration, databaseProvider);
 
-builder.Services.ConfigureSejil(options =>
-    options.AuthenticationScheme = NoneAuthenticationHandler.SchemeName);
-
 builder.Services.AddArcaFsHangfire(builder.Configuration);
 
 builder.Services.AddElectron();
@@ -101,7 +106,10 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseSejil();
+app.MapLogVue().RequireAuthorization(new AuthorizeAttribute
+{
+    Roles = ArcaFS.Constants.Roles.Administrator
+});
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {

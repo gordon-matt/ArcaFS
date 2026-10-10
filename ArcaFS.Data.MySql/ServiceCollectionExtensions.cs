@@ -4,6 +4,8 @@ using Hangfire.Storage.MySql;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using LogVue.Data.MySql;
+
 namespace ArcaFS.Data.MySql;
 
 public static class ServiceCollectionExtensions
@@ -29,6 +31,11 @@ public static class ServiceCollectionExtensions
 
             services.AddScoped<ApplicationDbContextBase>(sp => sp.GetRequiredService<ApplicationDbContext>());
             services.AddSingleton<IDbContextFactory, ApplicationDbContextFactory>();
+
+            if (!string.IsNullOrWhiteSpace(connectionString))
+            {
+                services.AddLogVueMySql(connectionString);
+            }
 
             return services;
         }

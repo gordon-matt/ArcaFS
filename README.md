@@ -12,7 +12,7 @@ Permissions are **per user, per path, on each source**. That means you can give 
 - Public share links (password, expiry, download limits)
 - Path-based ACL with templates for common family/team layouts
 - Theme picker (26 Bootswatch themes)
-- Hangfire job dashboard and Sejil log dashboard
+- Hangfire job dashboard and LogVue log dashboard
 - ASP.NET Identity (default), Keycloak, or no-auth desktop mode
 - SQL Server, PostgreSQL, MySQL, or SQLite
 

@@ -33,7 +33,7 @@ public sealed class SetupRedirectMiddleware(RequestDelegate next)
         "/access-denied",
         "/auth/",
         "/Identity/",
-        "/sejil",
+        "/logvue",
     ];
 
     public async Task InvokeAsync(HttpContext context, IServerSettingsService settingsService)
