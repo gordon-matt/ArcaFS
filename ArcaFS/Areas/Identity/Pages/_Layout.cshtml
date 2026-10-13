@@ -22,13 +22,15 @@
     <link rel="stylesheet" href="~/lib/bootswatch/dist/@(theme)/bootstrap.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="icon" type="image/x-icon" href="~/favicon.ico" />
+    <link rel="icon" type="image/png" href="~/img/Icon.png" />
 </head>
 <body class="bg-body-tertiary">
     <nav class="navbar navbar-expand-md bg-body border-bottom">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-archive-fill text-primary"></i> @siteName
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                <img class="arca-brand-logo" src="~/img/Logo.png" alt="@siteName" />
+                <img class="arca-brand-mark" src="~/img/Icon.png" alt="" />
+                <span class="arca-brand-name">@siteName</span>
             </a>
         </div>
     </nav>
