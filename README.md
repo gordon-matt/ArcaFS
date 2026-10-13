@@ -1,4 +1,4 @@
-# ArcaFS
+<img src="https://github.com/gordon-matt/ArcaFS/blob/master/_Misc/Logo_Background_Wide.jpg" alt="Logo" width="100%" />
 
 Arca File System — a self-hosted file browser for .NET 10 / Blazor Server.
 
