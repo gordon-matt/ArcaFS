@@ -1,42 +1,7 @@
-// Small, flat surface for Blazor JS interop. Each property on `window.arcafs` is
-// single-purpose so the C# call sites read naturally.
+// ArcaFS-only JS interop. Theme, modal and rename helpers live in the NetForge Bootstrap
+// package's forge.js (window.netForge); only the file browser's own needs are kept here.
 window.arcafs = {
-    _observers: new Map(),
-    _themeModalDismissRegistered: new Set(),
     _keyHandlers: new Map(),
-
-    /**
-     * Live-swaps the active Bootswatch stylesheet without a page reload.
-     * @param {string} href Path under wwwroot to the theme's bootstrap.min.css.
-     * @param {string} [dataBsTheme] "dark" or "light". Must match the theme, or Bootstrap's
-     *   [data-bs-theme=dark] variable overrides won't apply and text goes unreadable.
-     */
-    setThemeHref: function (href, dataBsTheme) {
-        var link = document.getElementById('theme-stylesheet');
-        if (link) {
-            link.setAttribute('href', href);
-        }
-        if (dataBsTheme === 'dark' || dataBsTheme === 'light') {
-            document.documentElement.setAttribute('data-bs-theme', dataBsTheme);
-        }
-    },
-
-    /** Raw value from localStorage; may be empty or invalid, so validate in .NET. */
-    getStoredTheme: function () {
-        try {
-            return localStorage.getItem('arcafs.theme') || '';
-        } catch (e) {
-            return '';
-        }
-    },
-
-    setStoredTheme: function (theme) {
-        try {
-            localStorage.setItem('arcafs.theme', theme);
-        } catch (e) {
-            /* private mode or blocked storage */
-        }
-    },
 
     getStoredViewMode: function () {
         try {
@@ -52,64 +17,6 @@ window.arcafs = {
         } catch (e) {
             /* private mode or blocked storage */
         }
-    },
-
-    /** Wires Bootstrap's hidden.bs.modal so Blazor can revert an uncommitted theme preview. */
-    registerThemeModalDismiss: function (modalId, dotNetRef) {
-        if (window.arcafs._themeModalDismissRegistered.has(modalId)) {
-            return;
-        }
-        var el = document.getElementById(modalId);
-        if (!el) {
-            return;
-        }
-        el.addEventListener('hidden.bs.modal', function () {
-            dotNetRef.invokeMethodAsync('OnThemeModalDismissed');
-        });
-        window.arcafs._themeModalDismissRegistered.add(modalId);
-    },
-
-    showModal: function (modalId) {
-        var el = document.getElementById(modalId);
-        if (!el || typeof bootstrap === 'undefined') {
-            return;
-        }
-        bootstrap.Modal.getOrCreateInstance(el).show();
-    },
-
-    hideModal: function (modalId) {
-        var el = document.getElementById(modalId);
-        if (!el || typeof bootstrap === 'undefined') {
-            return;
-        }
-        var instance = bootstrap.Modal.getInstance(el);
-        if (instance) {
-            instance.hide();
-        }
-    },
-
-    /** Native confirm, so message escaping stays on the .NET side. */
-    confirmDialog: function (message) {
-        return window.confirm(message);
-    },
-
-    focusElement: function (element) {
-        if (element && typeof element.focus === 'function') {
-            element.focus();
-        }
-    },
-
-    selectFileNameStem: function (element) {
-        if (!element) {
-            return;
-        }
-        element.focus();
-
-        // Select everything up to the extension so renaming "photo.jpg" doesn't make the user
-        // retype ".jpg" or risk losing it.
-        var value = element.value || '';
-        var dot = value.lastIndexOf('.');
-        element.setSelectionRange(0, dot > 0 ? dot : value.length);
     },
 
     /**
@@ -147,34 +54,6 @@ window.arcafs = {
         }
     },
 
-    observeInfiniteScroll: function (key, element, dotNetRef, callbackMethodName) {
-        if (!key || !(element instanceof Element) || !dotNetRef || !callbackMethodName) {
-            return;
-        }
-
-        this.disconnectInfiniteScroll(key);
-
-        var observer = new IntersectionObserver(function (entries) {
-            for (var i = 0; i < entries.length; i++) {
-                if (entries[i].isIntersecting) {
-                    dotNetRef.invokeMethodAsync(callbackMethodName);
-                    break;
-                }
-            }
-        }, { root: null, threshold: 0.1 });
-
-        observer.observe(element);
-        this._observers.set(key, observer);
-    },
-
-    disconnectInfiniteScroll: function (key) {
-        var observer = this._observers.get(key);
-        if (observer) {
-            observer.disconnect();
-            this._observers.delete(key);
-        }
-    },
-
     /** Triggers a browser download without navigating the SPA away from the current page. */
     downloadUrl: function (url) {
         var a = document.createElement('a');
@@ -191,12 +70,6 @@ window.arcafs = {
             return true;
         } catch (e) {
             return false;
-        }
-    },
-
-    scrollIntoView: function (element) {
-        if (element && typeof element.scrollIntoView === 'function') {
-            element.scrollIntoView({ block: 'nearest' });
         }
     }
 };

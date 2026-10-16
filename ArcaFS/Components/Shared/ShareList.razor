@@ -2,6 +2,7 @@
 @inject NavigationManager Navigation
 @inject ToastService Toasts
 @inject IJSRuntime JS
+@inject DialogService Dialogs
 
 @if (!string.IsNullOrEmpty(error))
 {
@@ -16,11 +17,7 @@
 }
 else if (shares.Count == 0)
 {
-    <div class="arca-empty-state">
-        <i class="bi bi-link-45deg arca-empty-icon"></i>
-        <h2 class="h5">No shares yet</h2>
-        <p>Create one from a file or folder with Share in the context menu.</p>
-    </div>
+    <EmptyState Icon="bi-link-45deg" Title="No shares yet" Description="Create one from a file or folder with Share in the context menu." />
 }
 else
 {
@@ -104,13 +101,10 @@ else
     </div>
 }
 
-<ConfirmDialog @ref="confirmDialog" />
 
 @code {
     [Parameter]
     public bool ShowOwner { get; set; }
-
-    private ConfirmDialog? confirmDialog;
     private string? error;
     private IReadOnlyList<ShareDto>? shares;
 
@@ -168,12 +162,7 @@ else
 
     private async Task DeleteAsync(ShareDto share)
     {
-        if (confirmDialog is null)
-        {
-            return;
-        }
-
-        if (!await confirmDialog.ShowAsync(
+        if (!await Dialogs.ConfirmAsync(
                 "Delete share",
                 "Anyone with this link will lose access.",
                 "Delete",

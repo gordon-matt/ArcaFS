@@ -449,7 +449,7 @@ public sealed class PermissionService(
             UserName = info?.UserName ?? localUser?.UserName,
             DisplayName = info?.DisplayName ?? localUser?.DisplayName,
             IsAuthenticated = true,
-            IsAdministrator = roles.Contains(Constants.Roles.Administrator),
+            IsAdministrator = roles.Contains(WellKnownRoles.Administrator),
             RoleNames = roles,
             GroupIds = groupIds,
             Ceiling = localUser is not null && !localUser.CanCreateShares

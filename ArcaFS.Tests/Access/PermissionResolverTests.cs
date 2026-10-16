@@ -453,6 +453,6 @@ public class PermissionResolverTests
         UserName = "admin",
         IsAuthenticated = true,
         IsAdministrator = true,
-        RoleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Constants.Roles.Administrator },
+        RoleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { WellKnownRoles.Administrator },
     };
 }

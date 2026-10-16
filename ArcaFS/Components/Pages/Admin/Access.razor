@@ -1,5 +1,5 @@
 @page "/admin/access"
-@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+@attribute [Authorize(Roles = WellKnownRoles.Administrator)]
 
 @inject IAccessRuleService AccessRuleService
 @inject IAccessGroupService AccessGroupService
@@ -8,19 +8,11 @@
 @inject IUserInfoService UserInfoService
 @inject IUserContextService UserContext
 @inject ToastService Toasts
+@inject DialogService Dialogs
 
 <PageTitle>Access rules - ArcaFS</PageTitle>
 
-<div class="arca-page-header">
-    <div>
-        <h1 class="h3 mb-1">Access rules</h1>
-        <p class="text-body-secondary mb-0">
-            Permissions are per user, per path, on each source. That is how one person can write
-            to Shared Files while everyone else can only read — a source-wide read-only switch
-            cannot express that.
-        </p>
-    </div>
-</div>
+<PageHeader Title="Access rules" Description="Permissions are per user, per path, on each source. That is how one person can write to Shared Files while everyone else can only read — a source-wide read-only switch cannot express that." />
 
 @if (!string.IsNullOrEmpty(bannerError))
 {
@@ -144,9 +136,7 @@
     }
     else if (rules.Count == 0)
     {
-        <div class="arca-empty-state py-4">
-            <p class="mb-0">No rules yet. Everyone gets the source default above.</p>
-        </div>
+        <EmptyState Title="No rules yet" Description="Everyone gets the source default above." />
     }
     else
     {
@@ -367,8 +357,8 @@
                                 <label class="form-label" for="rule-role">Role</label>
                                 <select id="rule-role" class="form-select" @bind="form.SubjectId">
                                     <option value="">Select…</option>
-                                    <option value="@Constants.Roles.Administrator">@Constants.Roles.Administrator</option>
-                                    <option value="@Constants.Roles.User">@Constants.Roles.User</option>
+                                    <option value="@WellKnownRoles.Administrator">@WellKnownRoles.Administrator</option>
+                                    <option value="@WellKnownRoles.User">@WellKnownRoles.User</option>
                                 </select>
                             }
                         </div>
@@ -419,4 +409,3 @@
     <div class="modal-backdrop fade show"></div>
 }
 
-<ConfirmDialog @ref="confirmDialog" />

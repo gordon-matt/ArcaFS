@@ -11,7 +11,7 @@
     var settings = await ServerSettings.GetAllAsync(Context.RequestAborted);
     string theme = settings.Theme;
     string siteName = settings.SiteName;
-    string colorScheme = Constants.BootswatchThemes.IsDarkColorScheme(theme) ? "dark" : "light";
+    string colorScheme = Heroicsoft.NetForge.Abstractions.Theming.BootswatchThemes.IsDarkColorScheme(theme) ? "dark" : "light";
 }
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="@colorScheme">

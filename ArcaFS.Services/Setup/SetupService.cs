@@ -89,7 +89,7 @@ public sealed class SetupService(
                 .ToArray());
         }
 
-        await userManager.AddToRoleAsync(user, Constants.Roles.Administrator);
+        await userManager.AddToRoleAsync(user, WellKnownRoles.Administrator);
 
         logger.LogInformation(
             "First administrator '{UserName}' created by the setup wizard",
@@ -301,7 +301,7 @@ public sealed class SetupService(
             using var scope = serviceProvider.CreateScope();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-            var administrators = await userManager.GetUsersInRoleAsync(Constants.Roles.Administrator);
+            var administrators = await userManager.GetUsersInRoleAsync(WellKnownRoles.Administrator);
 
             return administrators.Count > 0;
         }
@@ -316,14 +316,14 @@ public sealed class SetupService(
 
     private static async Task EnsureRolesAsync(RoleManager<ApplicationRole> roleManager)
     {
-        foreach (string role in new[] { Constants.Roles.Administrator, Constants.Roles.User })
+        foreach (string role in new[] { WellKnownRoles.Administrator, WellKnownRoles.User })
         {
             if (!await roleManager.RoleExistsAsync(role))
             {
                 await roleManager.CreateAsync(new ApplicationRole
                 {
                     Name = role,
-                    Description = role == Constants.Roles.Administrator
+                    Description = role == WellKnownRoles.Administrator
                         ? "Full access to every source and to server administration"
                         : "Standard access, governed by access rules",
                 });

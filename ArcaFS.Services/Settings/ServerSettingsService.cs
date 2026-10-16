@@ -1,4 +1,5 @@
 using System.Globalization;
+using Heroicsoft.NetForge.Abstractions.Theming;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace ArcaFS.Services.Settings;
@@ -120,7 +121,7 @@ public sealed class ServerSettingsService(
             return Result.Forbidden();
         }
 
-        if (!Constants.BootswatchThemes.All.Contains(settings.Theme, StringComparer.OrdinalIgnoreCase))
+        if (!BootswatchThemes.All.Contains(settings.Theme, StringComparer.OrdinalIgnoreCase))
         {
             return Result.Invalid(new ValidationError(
                 nameof(settings.Theme), $"'{settings.Theme}' is not one of the available themes."));

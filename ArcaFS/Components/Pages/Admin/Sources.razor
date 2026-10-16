@@ -1,27 +1,23 @@
 @page "/admin/sources"
-@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+@attribute [Authorize(Roles = WellKnownRoles.Administrator)]
 
 @inject ISourceService SourceService
 @inject IIndexService IndexService
 @inject IUserContextService UserContext
-@inject SidebarState SidebarState
+@inject SidebarRefresh SidebarRefresh
 @inject ToastService Toasts
 @inject NavigationManager Navigation
+@inject DialogService Dialogs
 
 <PageTitle>Sources - ArcaFS</PageTitle>
 
-<div class="arca-page-header">
-    <div>
-        <h1 class="h3 mb-1">Sources</h1>
-        <p class="text-body-secondary mb-0">
-            Each source is a folder on this machine. Permissions are per user and per path —
-            a source being writable for you does not make it writable for everyone.
-        </p>
-    </div>
-    <button type="button" class="btn btn-primary" @onclick="OpenCreate">
-        <i class="bi bi-plus-lg me-1"></i> Add source
-    </button>
-</div>
+<PageHeader Title="Sources" Description="Each source is a folder on this machine. Permissions are per user and per path — a source being writable for you does not make it writable for everyone.">
+    <Actions>
+        <button type="button" class="btn btn-primary" @onclick="OpenCreate">
+            <i class="bi bi-plus-lg me-1"></i> Add source
+        </button>
+    </Actions>
+</PageHeader>
 
 @if (!string.IsNullOrEmpty(bannerError))
 {
@@ -39,11 +35,7 @@
 }
 else if (sources.Count == 0)
 {
-    <div class="arca-empty-state">
-        <i class="bi bi-hdd-stack arca-empty-icon"></i>
-        <h2 class="h5">No sources yet</h2>
-        <p>Add a folder to start browsing files.</p>
-    </div>
+    <EmptyState Icon="bi-hdd-stack" Title="No sources yet" Description="Add a folder to start browsing files." />
 }
 else
 {
@@ -334,4 +326,3 @@ else
     <div class="modal-backdrop fade show"></div>
 }
 
-<ConfirmDialog @ref="confirmDialog" />

@@ -1,6 +1,7 @@
 using ArcaFS.Components;
 using ArcaFS.Infrastructure;
 using Hangfire;
+using Heroicsoft.NetForge.Abstractions.Data;
 using LogVue;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Connections;
@@ -36,16 +37,17 @@ builder.Services.AddHttpClient();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorization();
 
-// Scoped to the circuit, so one user's notifications and sidebar refreshes stay theirs.
-builder.Services.AddScoped<SidebarState>();
-builder.Services.AddScoped<ToastService>();
+builder.Services.AddArcaFsShell();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DownloadTicketService>();
 
-string databaseProvider = ArcaFsConfiguration.ResolveDatabaseProvider(builder.Configuration);
+string databaseProvider = DatabaseProviders.Resolve(
+    builder.Configuration[DatabaseProviders.ConfigurationKey],
+    DatabaseProviders.Sqlite,
+    [.. DatabaseProviders.All]);
 
-builder.Services.AddArcaFsDatabase(builder.Configuration);
+builder.Services.AddArcaFsDatabase(builder.Configuration, databaseProvider);
 builder.Services.AddArcaFsRepositories();
 
 var authProvider = builder.Services.AddArcaFsAuthentication(builder.Configuration);
@@ -54,7 +56,7 @@ var authProvider = builder.Services.AddArcaFsAuthentication(builder.Configuratio
 // which implementation that is depends on the auth mode.
 builder.Services.AddArcaFsServices(builder.Configuration, databaseProvider);
 
-builder.Services.AddArcaFsHangfire(builder.Configuration);
+builder.Services.AddArcaFsHangfire(builder.Configuration, databaseProvider);
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -95,14 +97,14 @@ app.UseAuthorization();
 
 app.MapLogVue().RequireAuthorization(new AuthorizeAttribute
 {
-    Roles = ArcaFS.Constants.Roles.Administrator
+    Roles = WellKnownRoles.Administrator
 });
 
-app.UseMiddleware<SetupRedirectMiddleware>();
+app.UseNetForgeSetupGate();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = [new HangfireAuthorizationFilter()],
+    Authorization = [new AdministratorDashboardAuthorizationFilter()],
 });
 
 app.MapRazorComponents<App>()

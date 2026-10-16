@@ -1,29 +1,11 @@
-﻿<!DOCTYPE html>
-<html lang="en" data-bs-theme="@(Constants.BootswatchThemes.IsDarkColorScheme(theme) ? "dark" : "light")">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
-    <title>ArcaFS</title>
-    <link id="theme-stylesheet" rel="stylesheet" href="@($"lib/bootswatch/dist/{theme}/bootstrap.min.css")" />
-    @* Runs before paint so a stored theme applies without a flash of the default one. *@
-    <script src="@Assets["js/theme-init.js"]"></script>
-    <link rel="stylesheet" href="lib/bootstrap-icons/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="ArcaFS.styles.css" />
-    <link rel="stylesheet" href="css/site.css" />
-    <link rel="icon" type="image/png" href="img/Icon.png" />
-    <HeadOutlet @rendermode="InteractiveServer" />
-</head>
-<body>
-    <Routes @rendermode="InteractiveServer" />
-    <script src="_framework/blazor.web.js"></script>
-    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="@Assets["js/arcafs.js"]"></script>
-    <script src="@Assets["js/uploader.js"]"></script>
-</body>
-</html>
-
-@code {
-    /// <summary>Fallback until <c>theme-init.js</c> reads the stored preference.</summary>
-    private readonly string theme = Constants.ServerSettingDefaults.Theme;
-}
+﻿<ForgeHostPage Title="ArcaFS"
+                IconHref="img/Icon.png"
+                AppStylesheet="@Assets["css/site.css"]">
+    <ChildContent>
+        <Routes @rendermode="InteractiveServer" />
+    </ChildContent>
+    <AdditionalBody>
+        <script src="@Assets["js/arcafs.js"]"></script>
+        <script src="@Assets["js/uploader.js"]"></script>
+    </AdditionalBody>
+</ForgeHostPage>

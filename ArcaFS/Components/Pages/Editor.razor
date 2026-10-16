@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject ToastService Toasts
+@inject DialogService Dialogs
 
 <PageTitle>@(file?.Name ?? "Editor") - ArcaFS</PageTitle>
 
@@ -34,7 +35,7 @@ else
                 <i class="bi bi-arrow-left"></i>
             </button>
 
-            <h1 class="h6 mb-0 arca-truncate" title="@file.Path">
+            <h1 class="h6 mb-0 bf-truncate" title="@file.Path">
                 <FileIcon Kind="FileKind.Code" CssClass="me-1" />
                 @file.Name
             </h1>
@@ -86,7 +87,6 @@ else
     </div>
 }
 
-<ConfirmDialog @ref="confirmDialog" />
 
 @code {
     [Parameter]
@@ -100,7 +100,6 @@ else
     private bool isDirty;
     private bool isSaving;
     private string? loadError;
-    private ConfirmDialog? confirmDialog;
     private IDisposable? navigationGuard;
 
     private int LineCount => content.Count(c => c == '\n') + 1;
@@ -182,12 +181,12 @@ else
 
     private async ValueTask OnLocationChangingAsync(LocationChangingContext context)
     {
-        if (!isDirty || confirmDialog is null)
+        if (!isDirty)
         {
             return;
         }
 
-        bool leave = await confirmDialog.ShowAsync(
+        bool leave = await Dialogs.ConfirmAsync(
             "Unsaved changes",
             "Leave without saving?",
             "Discard changes",

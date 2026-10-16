@@ -17,13 +17,8 @@
     {
         @* One message for expired, exhausted, disabled and non-existent, so probing a token
            can't distinguish them. *@
-        <div class="text-center py-5">
-            <i class="bi bi-link-45deg display-4 text-body-tertiary"></i>
-            <h1 class="h4 mt-3">This link isn't available</h1>
-            <p class="text-body-secondary">
-                It may have expired, reached its download limit, or been removed.
-            </p>
-        </div>
+        <EmptyState Icon="bi-link-45deg" Title="This link isn't available"
+                    Description="It may have expired, reached its download limit, or been removed." />
     }
     else if (info is null)
     {
@@ -143,7 +138,7 @@
         }
         else if (listing.Items.Count == 0)
         {
-            <p class="text-body-secondary text-center py-5">This folder is empty.</p>
+            <EmptyState Icon="bi-folder2-open" Title="This folder is empty." />
         }
         else
         {

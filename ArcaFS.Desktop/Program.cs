@@ -3,6 +3,7 @@ using ArcaFS.Infrastructure;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Hangfire;
+using Heroicsoft.NetForge.Abstractions.Data;
 using LogVue;
 using Microsoft.AspNetCore.Authorization;
 using Serilog;
@@ -29,8 +30,8 @@ if (string.IsNullOrWhiteSpace(defaultSourcePath) || !Directory.Exists(defaultSou
 
 var overrides = new Dictionary<string, string?>
 {
-    ["Database:Provider"] = ArcaFS.Constants.DatabaseProviders.Sqlite,
-    ["Authentication:Provider"] = ArcaFS.Constants.AuthProviders.None,
+    ["Database:Provider"] = DatabaseProviders.Sqlite,
+    ["Authentication:Provider"] = AuthProviderNames.None,
     ["ConnectionStrings:DefaultConnection"] = $"Data Source={Path.Combine(appDataDir, "arcafs.db")}",
     ["Hangfire:SqlitePath"] = Path.Combine(appDataDir, "hangfire.db"),
     ["Thumbnails:CacheDirectory"] = Path.Combine(appDataDir, "thumbnails"),
@@ -78,22 +79,24 @@ builder.Services.AddHttpClient();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorization();
 
-builder.Services.AddScoped<SidebarState>();
-builder.Services.AddScoped<ToastService>();
+builder.Services.AddArcaFsShell();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DownloadTicketService>();
 
-string databaseProvider = ArcaFsConfiguration.ResolveDatabaseProvider(builder.Configuration);
+string databaseProvider = DatabaseProviders.Resolve(
+    builder.Configuration[DatabaseProviders.ConfigurationKey],
+    DatabaseProviders.Sqlite,
+    [.. DatabaseProviders.All]);
 
-builder.Services.AddArcaFsDatabase(builder.Configuration);
+builder.Services.AddArcaFsDatabase(builder.Configuration, databaseProvider);
 builder.Services.AddArcaFsRepositories();
 
 var authProvider = builder.Services.AddArcaFsAuthentication(builder.Configuration);
 
 builder.Services.AddArcaFsServices(builder.Configuration, databaseProvider);
 
-builder.Services.AddArcaFsHangfire(builder.Configuration);
+builder.Services.AddArcaFsHangfire(builder.Configuration, databaseProvider);
 
 builder.Services.AddElectron();
 builder.UseElectron(args, OnElectronAppReadyAsync);
@@ -106,14 +109,16 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseNetForgeSetupGate();
+
 app.MapLogVue().RequireAuthorization(new AuthorizeAttribute
 {
-    Roles = ArcaFS.Constants.Roles.Administrator
+    Roles = WellKnownRoles.Administrator
 });
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
-    Authorization = [new HangfireAuthorizationFilter()],
+    Authorization = [new AdministratorDashboardAuthorizationFilter()],
 });
 
 app.MapRazorComponents<ArcaFS.Components.App>()

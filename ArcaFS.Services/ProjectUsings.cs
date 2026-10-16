@@ -15,3 +15,6 @@ global using LinqKit;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.Extensions.Logging;
+global using Heroicsoft.NetForge.Abstractions;
+global using Heroicsoft.NetForge.Abstractions.Auth;
+global using Heroicsoft.NetForge.Results;

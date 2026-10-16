@@ -1,5 +1,5 @@
 @page "/admin/settings"
-@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+@attribute [Authorize(Roles = WellKnownRoles.Administrator)]
 
 @inject IServerSettingsService SettingsService
 @inject IAuthProviderService AuthProviderService
@@ -8,12 +8,7 @@
 
 <PageTitle>Settings - ArcaFS</PageTitle>
 
-<div class="arca-page-header">
-    <div>
-        <h1 class="h3 mb-1">Settings</h1>
-        <p class="text-body-secondary mb-0">Instance-wide options. Database and authentication are configured in appsettings or environment variables.</p>
-    </div>
-</div>
+<PageHeader Title="Settings" Description="Instance-wide options. Database and authentication are configured in appsettings or environment variables." />
 
 @if (!loaded)
 {
@@ -40,7 +35,7 @@ else
                     <div class="mb-0">
                         <label class="form-label" for="set-theme">Default theme</label>
                         <select id="set-theme" class="form-select" @bind="form.Theme">
-                            @foreach (string theme in Constants.BootswatchThemes.All)
+                            @foreach (string theme in BootswatchThemes.All)
                             {
                                 <option value="@theme">@theme</option>
                             }

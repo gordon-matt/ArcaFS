@@ -1,5 +1,5 @@
 @page "/admin/users"
-@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+@attribute [Authorize(Roles = WellKnownRoles.Administrator)]
 
 @inject IAuthProviderService AuthProviderService
 @inject IUserInfoService UserInfoService
@@ -7,34 +7,20 @@
 @inject IAccessGroupService AccessGroupService
 @inject IServiceProvider Services
 @inject ToastService Toasts
+@inject DialogService Dialogs
 
 <PageTitle>Users - ArcaFS</PageTitle>
 
-<div class="arca-page-header">
-    <div>
-        <h1 class="h3 mb-1">Users</h1>
-        <p class="text-body-secondary mb-0">
-            @switch (AuthProviderService.Provider)
-            {
-                case AuthProvider.Identity:
-                    <text>Local accounts (ASP.NET Identity). File access is granted on the Access rules page, not here.</text>
-                    break;
-                case AuthProvider.Keycloak:
-                    <text>Accounts live in Keycloak. This list is read-only. File access is still configured under Access rules.</text>
-                    break;
-                case AuthProvider.None:
-                    <text>Authentication is off — only the synthetic local user exists.</text>
-                    break;
-            }
-        </p>
-    </div>
-    @if (AuthProviderService.Provider == AuthProvider.Identity && adminUsers is not null)
-    {
-        <button type="button" class="btn btn-primary" @onclick="OpenCreate">
-            <i class="bi bi-person-plus me-1"></i> New user
-        </button>
-    }
-</div>
+<PageHeader Title="Users" Description="@UsersDescription">
+    <Actions>
+        @if (AuthProviderService.Provider == AuthProvider.Identity && adminUsers is not null)
+        {
+            <button type="button" class="btn btn-primary" @onclick="OpenCreate">
+                <i class="bi bi-person-plus me-1"></i> New user
+            </button>
+        }
+    </Actions>
+</PageHeader>
 
 @if (!string.IsNullOrEmpty(bannerError))
 {
@@ -54,10 +40,7 @@
     }
     else if (identityRows is null || identityRows.Count == 0)
     {
-        <div class="arca-empty-state">
-            <i class="bi bi-people arca-empty-icon"></i>
-            <h2 class="h5">No users found</h2>
-        </div>
+        <EmptyState Icon="bi-people" Title="No users found" />
     }
     else
     {
@@ -264,10 +247,7 @@ else
     }
     else if (readOnlyUsers.Count == 0)
     {
-        <div class="arca-empty-state">
-            <i class="bi bi-people arca-empty-icon"></i>
-            <h2 class="h5">No users found</h2>
-        </div>
+        <EmptyState Icon="bi-people" Title="No users found" />
     }
     else
     {
@@ -310,4 +290,3 @@ else
     }
 }
 
-<ConfirmDialog @ref="confirmDialog" />

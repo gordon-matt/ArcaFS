@@ -25,7 +25,7 @@
             {
                 <li class="list-group-item py-2" @key="upload.Id">
                     <div class="d-flex align-items-center justify-content-between gap-2">
-                        <span class="small arca-truncate" title="@upload.FileName">@upload.FileName</span>
+                        <span class="small bf-truncate" title="@upload.FileName">@upload.FileName</span>
                         @if (upload.Error is not null)
                         {
                             <i class="bi bi-exclamation-circle text-danger" title="@upload.Error"></i>

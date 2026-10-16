@@ -293,7 +293,7 @@ public sealed class AdminIdentityUserManagementService(
         ApplicationUser user,
         IReadOnlyCollection<string> newRoles)
     {
-        bool wasAdministrator = await userManager.IsInRoleAsync(user, Constants.Roles.Administrator);
+        bool wasAdministrator = await userManager.IsInRoleAsync(user, WellKnownRoles.Administrator);
 
         if (!wasAdministrator)
         {
@@ -301,7 +301,7 @@ public sealed class AdminIdentityUserManagementService(
         }
 
         bool staysAdministrator = newRoles.Contains(
-            Constants.Roles.Administrator,
+            WellKnownRoles.Administrator,
             StringComparer.OrdinalIgnoreCase);
 
         if (staysAdministrator)
@@ -309,7 +309,7 @@ public sealed class AdminIdentityUserManagementService(
             return Result.Success();
         }
 
-        var administrators = await userManager.GetUsersInRoleAsync(Constants.Roles.Administrator);
+        var administrators = await userManager.GetUsersInRoleAsync(WellKnownRoles.Administrator);
 
         return administrators.Count <= 1
             ? Result.Invalid(new ValidationError(

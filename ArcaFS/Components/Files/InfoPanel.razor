@@ -92,7 +92,7 @@
             }
         </div>
 
-        <AuthorizeView Roles="@Constants.Roles.Administrator">
+        <AuthorizeView Roles="@WellKnownRoles.Administrator">
             <a class="btn btn-sm btn-outline-secondary"
                href="@($"/admin/access?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}")">
                 <i class="bi bi-shield-lock me-1"></i> Access rules

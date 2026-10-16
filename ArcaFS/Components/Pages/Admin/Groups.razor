@@ -1,24 +1,20 @@
 @page "/admin/groups"
-@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+@attribute [Authorize(Roles = WellKnownRoles.Administrator)]
 
 @inject IAccessGroupService AccessGroupService
 @inject IUserInfoService UserInfoService
 @inject ToastService Toasts
+@inject DialogService Dialogs
 
 <PageTitle>Groups - ArcaFS</PageTitle>
 
-<div class="arca-page-header">
-    <div>
-        <h1 class="h3 mb-1">Groups</h1>
-        <p class="text-body-secondary mb-0">
-            Named sets of users that access rules can target. Keycloak groups are synced on sign-in
-            and marked as externally managed.
-        </p>
-    </div>
-    <button type="button" class="btn btn-primary" @onclick="OpenCreate">
-        <i class="bi bi-plus-lg me-1"></i> New group
-    </button>
-</div>
+<PageHeader Title="Groups" Description="Named sets of users that access rules can target. Keycloak groups are synced on sign-in and marked as externally managed.">
+    <Actions>
+        <button type="button" class="btn btn-primary" @onclick="OpenCreate">
+            <i class="bi bi-plus-lg me-1"></i> New group
+        </button>
+    </Actions>
+</PageHeader>
 
 @if (!string.IsNullOrEmpty(bannerError))
 {
@@ -33,11 +29,7 @@
 }
 else if (groups.Count == 0)
 {
-    <div class="arca-empty-state">
-        <i class="bi bi-diagram-3 arca-empty-icon"></i>
-        <h2 class="h5">No groups yet</h2>
-        <p>Use a group when several people should share the same access on a folder.</p>
-    </div>
+    <EmptyState Icon="bi-diagram-3" Title="No groups yet" Description="Use a group when several people should share the same access on a folder." />
 }
 else
 {
@@ -146,11 +138,9 @@ else
     <div class="modal-backdrop fade show"></div>
 }
 
-<ConfirmDialog @ref="confirmDialog" />
 
 @code {
     private string? bannerError;
-    private ConfirmDialog? confirmDialog;
     private GroupForm form = new();
     private IReadOnlyList<AccessGroupDto>? groups;
     private string? modalError;
@@ -249,12 +239,7 @@ else
 
     private async Task DeleteAsync(AccessGroupDto group)
     {
-        if (confirmDialog is null)
-        {
-            return;
-        }
-
-        if (!await confirmDialog.ShowAsync(
+        if (!await Dialogs.ConfirmAsync(
                 "Delete group",
                 $"Delete “{group.Name}”?",
                 "Delete",

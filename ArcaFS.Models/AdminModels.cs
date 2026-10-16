@@ -12,7 +12,7 @@ public record UserInfo(
         ? DisplayName
         : UserName ?? Email ?? Id;
 
-    public bool IsAdministrator => Roles.Contains(Constants.Roles.Administrator, StringComparer.OrdinalIgnoreCase);
+    public bool IsAdministrator => Roles.Contains(WellKnownRoles.Administrator, StringComparer.OrdinalIgnoreCase);
 }
 
 public record AdminUserListItem(
@@ -39,7 +39,7 @@ public record AdminCreateUserRequest
 
     public string? DisplayName { get; init; }
 
-    public IReadOnlyList<string> Roles { get; init; } = [Constants.Roles.User];
+    public IReadOnlyList<string> Roles { get; init; } = [WellKnownRoles.User];
 
     public bool CanCreateShares { get; init; } = true;
 

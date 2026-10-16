@@ -6,7 +6,6 @@ public partial class Sources
 {
     private readonly HashSet<int> scanning = [];
     private string? bannerError;
-    private ConfirmDialog? confirmDialog;
     private SourceForm form = new();
     private string? modalError;
     private SourcePathProbeDto? probe;
@@ -100,7 +99,7 @@ public partial class Sources
             if (result.IsSuccess)
             {
                 CloseEditor();
-                SidebarState.NotifyChanged();
+                SidebarRefresh.NotifyChanged();
                 Toasts.Success(form.Id == 0 ? "Source added." : "Source updated.");
                 await LoadAsync();
             }
@@ -117,12 +116,7 @@ public partial class Sources
 
     private async Task DeleteAsync(SourceDto source)
     {
-        if (confirmDialog is null)
-        {
-            return;
-        }
-
-        bool confirmed = await confirmDialog.ShowAsync(
+        bool confirmed = await Dialogs.ConfirmAsync(
             "Remove source",
             $"Remove “{source.Name}” from ArcaFS?",
             "Remove",
@@ -137,7 +131,7 @@ public partial class Sources
         var result = await SourceService.DeleteAsync(source.Id);
         if (result.IsSuccess)
         {
-            SidebarState.NotifyChanged();
+            SidebarRefresh.NotifyChanged();
             Toasts.Success("Source removed. Files on disk were left untouched.");
             await LoadAsync();
         }

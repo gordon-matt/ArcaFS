@@ -10,12 +10,14 @@
 	<ItemGroup>
 		<PackageReference Include="Ardalis.Result" Version="10.1.0" />
 		<PackageReference Include="Hangfire.Core" Version="1.8.23" />
+		<PackageReference Include="Heroicsoft.NetForge.Abstractions" Version="1.0.1-beta" />
+		<PackageReference Include="Heroicsoft.NetForge.Results" Version="1.0.1-beta" />
 		<PackageReference Include="LinqKit.Core" Version="1.2.11" />
 		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
-		<PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.12" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
 		<PackageReference Include="SharpCompress" Version="0.50.4" />
 		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
 	</ItemGroup>

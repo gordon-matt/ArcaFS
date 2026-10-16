@@ -7,7 +7,6 @@ public partial class Access
 {
     private bool applyingTemplate;
     private string? bannerError;
-    private ConfirmDialog? confirmDialog;
     private string? explainError;
     private EffectivePermissionsDto? explanation;
     private RuleForm form = new();
@@ -138,12 +137,7 @@ public partial class Access
 
     private async Task DeleteAsync(AccessRuleDto rule)
     {
-        if (confirmDialog is null)
-        {
-            return;
-        }
-
-        bool confirmed = await confirmDialog.ShowAsync(
+        bool confirmed = await Dialogs.ConfirmAsync(
             "Delete rule",
             $"Delete the {rule.Effect} rule for {rule.SubjectType} at {rule.Path}?",
             "Delete",

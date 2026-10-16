@@ -4,10 +4,16 @@ namespace ArcaFS.Components.Pages.Admin;
 
 public partial class Users
 {
+    private string UsersDescription => AuthProviderService.Provider switch
+    {
+        AuthProvider.Identity => "Local accounts (ASP.NET Identity). File access is granted on the Access rules page, not here.",
+        AuthProvider.Keycloak => "Accounts live in Keycloak. This list is read-only. File access is still configured under Access rules.",
+        _ => "Authentication is off - only the synthetic local user exists.",
+    };
+
     private IAdminUserManagementService? adminUsers;
     private IReadOnlyList<RoleOption> assignableRoles = [];
     private string? bannerError;
-    private ConfirmDialog? confirmDialog;
     private string? currentUserId;
     private string? editingUserId;
     private UserForm form = new();
@@ -65,7 +71,7 @@ public partial class Users
     {
         isCreate = true;
         editingUserId = null;
-        form = new UserForm { Roles = [Constants.Roles.User] };
+        form = new UserForm { Roles = [WellKnownRoles.User] };
         modalError = null;
         showEditor = true;
     }
@@ -189,13 +195,13 @@ public partial class Users
 
     private async Task ToggleLockoutAsync(AdminUserListItem user)
     {
-        if (adminUsers is null || confirmDialog is null)
+        if (adminUsers is null)
         {
             return;
         }
 
         string action = user.IsLockedOut ? "unlock" : "lock";
-        if (!await confirmDialog.ShowAsync(
+        if (!await Dialogs.ConfirmAsync(
                 $"{char.ToUpperInvariant(action[0])}{action[1..]} user",
                 $"Are you sure you want to {action} “{user.UserName}”?",
                 char.ToUpperInvariant(action[0]) + action[1..]))
@@ -216,12 +222,12 @@ public partial class Users
 
     private async Task DeleteAsync(AdminUserListItem user)
     {
-        if (adminUsers is null || confirmDialog is null)
+        if (adminUsers is null)
         {
             return;
         }
 
-        if (!await confirmDialog.ShowAsync(
+        if (!await Dialogs.ConfirmAsync(
                 "Delete user",
                 $"Delete “{user.UserName}”? This cannot be undone.",
                 "Delete",

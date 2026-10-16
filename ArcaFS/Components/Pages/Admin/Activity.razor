@@ -1,5 +1,5 @@
 @page "/admin/activity"
-@attribute [Authorize(Roles = Constants.Roles.Administrator)]
+@attribute [Authorize(Roles = WellKnownRoles.Administrator)]
 
 @inject IActivityService ActivityService
 @inject ISourceService SourceService
@@ -7,12 +7,7 @@
 
 <PageTitle>Activity - ArcaFS</PageTitle>
 
-<div class="arca-page-header">
-    <div>
-        <h1 class="h3 mb-1">Activity</h1>
-        <p class="text-body-secondary mb-0">Audit trail of file operations and share access.</p>
-    </div>
-</div>
+<PageHeader Title="Activity" Description="Audit trail of file operations and share access." />
 
 <div class="card mb-3">
     <div class="card-body">
@@ -82,10 +77,7 @@
 }
 else if (activityPage.Items.Count == 0)
 {
-    <div class="arca-empty-state">
-        <i class="bi bi-clock-history arca-empty-icon"></i>
-        <h2 class="h5">No matching events</h2>
-    </div>
+    <EmptyState Icon="bi-clock-history" Title="No matching events" />
 }
 else
 {

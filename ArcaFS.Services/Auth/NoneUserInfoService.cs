@@ -1,21 +1,30 @@
 namespace ArcaFS.Services.Auth;
 
-/// <summary>Reports the one synthetic user that exists in <c>None</c> mode.</summary>
-public sealed class NoneUserInfoService : IUserInfoService
+/// <summary>
+/// Reports the one synthetic user that exists in <c>None</c> mode. The id, name and roles come
+/// from the library's <see cref="IUserContextService"/>, which owns that user.
+/// </summary>
+public sealed class NoneUserInfoService(IUserContextService userContext) : IUserInfoService
 {
-    private static readonly UserInfo DefaultUser = new(
-        Constants.DefaultUserId,
-        Constants.DefaultUserName,
-        Email: null,
-        DisplayName: Constants.DefaultUserName,
-        Roles: [Constants.Roles.Administrator, Constants.Roles.User]);
+    private UserInfo DefaultUser
+    {
+        get
+        {
+            string id = userContext.GetCurrentUserId() ?? string.Empty;
+            string name = userContext.GetCurrentUserName() ?? id;
+
+            return new UserInfo(id, name, Email: null, DisplayName: name, Roles: [.. userContext.GetRoleNames()]);
+        }
+    }
 
     public Task<IReadOnlyDictionary<string, UserInfo>> GetUserInfoAsync(
         IEnumerable<string> userIds,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyDictionary<string, UserInfo> result = userIds.Contains(Constants.DefaultUserId)
-            ? new Dictionary<string, UserInfo> { [Constants.DefaultUserId] = DefaultUser }
+        var user = DefaultUser;
+
+        IReadOnlyDictionary<string, UserInfo> result = userIds.Contains(user.Id)
+            ? new Dictionary<string, UserInfo> { [user.Id] = user }
             : new Dictionary<string, UserInfo>();
 
         return Task.FromResult(result);
@@ -24,6 +33,9 @@ public sealed class NoneUserInfoService : IUserInfoService
     public Task<IReadOnlyList<UserInfo>> GetAllUsersAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<UserInfo>>([DefaultUser]);
 
-    public Task<UserInfo?> GetUserAsync(string userId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(userId == Constants.DefaultUserId ? DefaultUser : null);
+    public Task<UserInfo?> GetUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        var user = DefaultUser;
+        return Task.FromResult(userId == user.Id ? user : null);
+    }
 }

@@ -37,7 +37,7 @@ public class Source : BaseEntity<int>
     public FilePermission DefaultPermissions { get; set; } = FilePermission.ReadOnly;
 
     /// <summary>
-    /// Whether members of <see cref="Constants.Roles.Administrator"/> skip rule evaluation.
+    /// Whether members of <see cref="Heroicsoft.NetForge.Abstractions.Auth.WellKnownRoles.Administrator"/> skip rule evaluation.
     /// On by default so deny-by-default sources do not lock administrators out of their own
     /// server. Opting into that lock is explicit.
     /// </summary>
