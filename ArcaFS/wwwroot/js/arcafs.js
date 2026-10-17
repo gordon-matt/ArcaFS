@@ -1,5 +1,4 @@
-// ArcaFS-only JS interop. Theme, modal and rename helpers live in the NetForge Bootstrap
-// package's forge.js (window.netForge); only the file browser's own needs are kept here.
+// ArcaFS-only JS interop. Theme switching lives in the NetForge shell; this file is the file browser.
 window.arcafs = {
     _keyHandlers: new Map(),
 

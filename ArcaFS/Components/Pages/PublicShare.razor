@@ -17,7 +17,7 @@
     {
         @* One message for expired, exhausted, disabled and non-existent, so probing a token
            can't distinguish them. *@
-        <EmptyState Icon="bi-link-45deg" Title="This link isn't available"
+        <EmptyState Icon="link" Title="This link isn't available"
                     Description="It may have expired, reached its download limit, or been removed." />
     }
     else if (info is null)
@@ -138,7 +138,7 @@
         }
         else if (listing.Items.Count == 0)
         {
-            <EmptyState Icon="bi-folder2-open" Title="This folder is empty." />
+            <EmptyState Icon="inbox" Title="This folder is empty." />
         }
         else
         {

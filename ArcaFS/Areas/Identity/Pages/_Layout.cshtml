@@ -1,53 +1,48 @@
-@*
-    Custom layout for the embedded ASP.NET Identity UI (`AddDefaultUI()`).
-    The default layout shipped with Microsoft.AspNetCore.Identity.UI references partials
-    (`_LoginPartial`, `_ValidationScriptsPartial`) we never scaffolded into this Blazor Server
-    project, so we replace it wholesale. Identity pages here intentionally do not host the
-    Blazor sidebar — they are plain Razor Pages rendered before the Blazor circuit is up.
-*@
-@using ArcaFS.Services.Settings
+@using Microsoft.Extensions.Options
+@using Heroicsoft.NetForge.Components
+@inject IOptions<ForgeUiOptions> UiOptions
 @inject IServerSettingsService ServerSettings
+@*
+    Identity pages render before a Blazor circuit exists, so they load the same stylesheet,
+    theme script and accent as the app shell.
+*@
 @{
     var settings = await ServerSettings.GetAllAsync(Context.RequestAborted);
-    string theme = settings.Theme;
-    string siteName = settings.SiteName;
-    string colorScheme = Heroicsoft.NetForge.Abstractions.Theming.BootswatchThemes.IsDarkColorScheme(theme) ? "dark" : "light";
+    var ui = UiOptions.Value;
+    string? accentCss = ForgeAccentCss.Build(ui);
+    string defaultScheme = settings.Theme is "light" or "dark" or "system"
+        ? settings.Theme
+        : ui.DefaultColorScheme;
 }
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="@colorScheme">
+<html lang="en" data-theme="@(defaultScheme == "dark" ? "dark" : "light")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - @siteName</title>
-    <link rel="stylesheet" href="~/lib/bootswatch/dist/@(theme)/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" />
+    <title>@ViewData["Title"] - @settings.SiteName</title>
     <link rel="icon" type="image/png" href="~/img/Icon.png" />
+    <script src="~/_content/Heroicsoft.NetForge.Components/js/theme-init.js"
+            data-theme-key="@ui.ThemeStorageKey"
+            data-default-theme="@defaultScheme"></script>
+    <link rel="stylesheet" href="~/_content/Heroicsoft.NetForge.Components/css/nf.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    @if (accentCss is not null)
+    {
+        <style>@Html.Raw(accentCss)</style>
+    }
 </head>
-<body class="bg-body-tertiary">
-    <nav class="navbar navbar-expand-md bg-body border-bottom">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
-                <img class="arca-brand-logo" src="~/img/Logo.png" alt="@siteName" />
-                <img class="arca-brand-mark" src="~/img/Icon.png" alt="" />
-                <span class="arca-brand-name">@siteName</span>
-            </a>
-        </div>
-    </nav>
-
-    <main class="container py-4">
-        <div class="row justify-content-center">
-            <div class="col-md-8 col-lg-6">
-                <div class="card shadow-sm">
-                    <div class="card-body p-4">
-                        @RenderBody()
-                    </div>
-                </div>
+<body>
+    <div class="nf-standalone">
+        <div class="nf-standalone-body">
+            <div class="nf-auth-card">
+                <a class="nf-brand-link" href="/">
+                    <img src="~/img/Icon.png" alt="" />
+                    <span class="nf-brand-text">@settings.SiteName</span>
+                </a>
+                @RenderBody()
             </div>
         </div>
-    </main>
-
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

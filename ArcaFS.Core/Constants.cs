@@ -1,11 +1,10 @@
 using ArcaFS.Enums;
-using Heroicsoft.NetForge.Abstractions.Theming;
 
 namespace ArcaFS;
 
 public static class Constants
 {
-    /// <summary>Browser <c>localStorage</c> key for the per-user Bootswatch theme (client-only).</summary>
+    /// <summary>Browser <c>localStorage</c> key for the light or dark scheme (client-only).</summary>
     public const string ClientThemeLocalStorageKey = "arcafs.theme";
 
     /// <summary>Browser <c>localStorage</c> key for the per-user file listing view mode.</summary>
@@ -56,7 +55,7 @@ public static class Constants
     /// </summary>
     public static class ServerSettingDefaults
     {
-        public const string Theme = BootswatchThemes.Default;
+        public const string Theme = "system";
         public const FileOpenTarget OpenFilesIn = FileOpenTarget.Dialog;
     }
 

@@ -93,10 +93,7 @@ public sealed class ServerSettingsService(
 
         return new ServerSettingsDto
         {
-            Theme = all.GetValueOrDefault(Constants.ServerSettingKeys.Theme)
-                is { Length: > 0 } theme
-                ? theme
-                : Constants.ServerSettingDefaults.Theme,
+            Theme = NormalizeScheme(all.GetValueOrDefault(Constants.ServerSettingKeys.Theme)),
 
             SiteName = all.GetValueOrDefault(Constants.ServerSettingKeys.SiteName)
                 is { Length: > 0 } siteName
@@ -121,10 +118,10 @@ public sealed class ServerSettingsService(
             return Result.Forbidden();
         }
 
-        if (!BootswatchThemes.All.Contains(settings.Theme, StringComparer.OrdinalIgnoreCase))
+        if (settings.Theme is not ("light" or "dark" or "system"))
         {
             return Result.Invalid(new ValidationError(
-                nameof(settings.Theme), $"'{settings.Theme}' is not one of the available themes."));
+                nameof(settings.Theme), "Choose light, dark, or system."));
         }
 
         string siteName = settings.SiteName?.Trim() ?? string.Empty;
@@ -189,6 +186,17 @@ public sealed class ServerSettingsService(
 
         return map;
     }
+
+    /// <summary>
+    /// light, dark, or system. A Bootswatch name saved by the previous shell maps to light or dark
+    /// so an existing database still loads.
+    /// </summary>
+    private static string NormalizeScheme(string? theme) => theme switch
+    {
+        "light" or "dark" or "system" => theme,
+        _ when BootswatchThemes.IsDarkColorScheme(theme) => "dark",
+        _ => Constants.ServerSettingDefaults.Theme,
+    };
 
     private static bool ParseBool(string? value, bool fallback = false) =>
         bool.TryParse(value, out bool parsed) ? parsed : fallback;

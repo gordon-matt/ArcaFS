@@ -4,31 +4,28 @@
     ViewData["Title"] = "Sign in";
 }
 
-<h1 class="h4 mb-3">@ViewData["Title"]</h1>
+<h1>@ViewData["Title"]</h1>
+<p class="nf-hint">Use the administrator account, or one you registered.</p>
 
 <form id="account" method="post">
-    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+    <div asp-validation-summary="ModelOnly" class="nf-validation" role="alert"></div>
 
-    <div class="mb-3">
-        <label asp-for="Input.Email" class="form-label"></label>
-        <input asp-for="Input.Email" class="form-control" autocomplete="username" autofocus />
-        <span asp-validation-for="Input.Email" class="text-danger"></span>
+    <div class="nf-field">
+        <label asp-for="Input.Email"></label>
+        <input asp-for="Input.Email" class="nf-input" autocomplete="username" autofocus />
+        <span asp-validation-for="Input.Email" class="nf-validation"></span>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="Input.Password" class="form-label"></label>
-        <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
-        <span asp-validation-for="Input.Password" class="text-danger"></span>
+    <div class="nf-field">
+        <label asp-for="Input.Password"></label>
+        <input asp-for="Input.Password" class="nf-input" autocomplete="current-password" />
+        <span asp-validation-for="Input.Password" class="nf-validation"></span>
     </div>
 
-    <div class="form-check mb-3">
-        <input class="form-check-input" asp-for="Input.RememberMe" />
-        <label class="form-check-label" asp-for="Input.RememberMe"></label>
-    </div>
+    <label class="nf-check">
+        <input asp-for="Input.RememberMe" />
+        <span>Remember me</span>
+    </label>
 
-    <button id="login-submit" type="submit" class="btn btn-primary w-100">Sign in</button>
+    <button id="login-submit" type="submit" class="nf-button nf-button-primary nf-button-block">Sign in</button>
 </form>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}

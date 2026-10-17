@@ -45,8 +45,8 @@ public sealed class ArcaNavigation(
             {
                 Items =
                 [
-                    new() { Title = "Home", Href = "/", Icon = "bi-house-door", MatchAll = true },
-                    new() { Title = "Search", Href = "/search", Icon = "bi-search" },
+                    new() { Title = "Home", Href = "/", Icon = "home", MatchAll = true },
+                    new() { Title = "Search", Href = "/search", Icon = "search" },
                 ],
             },
         ];
@@ -62,7 +62,7 @@ public sealed class ArcaNavigation(
                     {
                         Title = source.Name,
                         Href = $"/files/{source.Id}",
-                        Icon = source.IsReadOnly ? "bi-lock-fill" : "bi-folder-fill",
+                        Icon = source.IsReadOnly ? "shield" : "library",
                     }),
                 ],
             });
@@ -79,7 +79,7 @@ public sealed class ArcaNavigation(
                     {
                         Title = favorite.Label,
                         Href = BuildFilesUrl(favorite.SourceId, favorite.Path),
-                        Icon = favorite.IsDirectory ? "bi-star-fill" : "bi-star",
+                        Icon = favorite.IsDirectory ? "pin" : "pin-off",
                     }),
                 ],
             });
@@ -91,15 +91,15 @@ public sealed class ArcaNavigation(
             Roles = WellKnownRoles.Administrator,
             Items =
             [
-                new() { Title = "Sources", Href = "/admin/sources", Icon = "bi-hdd-stack" },
-                new() { Title = "Access rules", Href = "/admin/access", Icon = "bi-shield-lock" },
-                new() { Title = "Users", Href = "/admin/users", Icon = "bi-people" },
-                new() { Title = "Groups", Href = "/admin/groups", Icon = "bi-diagram-3" },
-                new() { Title = "Shares", Href = "/admin/shares", Icon = "bi-link-45deg" },
-                new() { Title = "Activity", Href = "/admin/activity", Icon = "bi-clock-history" },
-                new() { Title = "Settings", Href = "/admin/settings", Icon = "bi-sliders" },
-                new() { Title = "Jobs", Href = "/hangfire", Icon = "bi-cpu", External = true, Tooltip = "Background jobs" },
-                new() { Title = "Logs", Href = "/logvue", Icon = "bi-journal-text", External = true, Tooltip = "Log viewer" },
+                new() { Title = "Sources", Href = "/admin/sources", Icon = "library" },
+                new() { Title = "Access rules", Href = "/admin/access", Icon = "shield" },
+                new() { Title = "Users", Href = "/admin/users", Icon = "user" },
+                new() { Title = "Groups", Href = "/admin/groups", Icon = "signpost" },
+                new() { Title = "Shares", Href = "/admin/shares", Icon = "link" },
+                new() { Title = "Activity", Href = "/admin/activity", Icon = "info" },
+                new() { Title = "Settings", Href = "/admin/settings", Icon = "settings" },
+                new() { Title = "Jobs", Href = "/hangfire", Icon = "jobs", External = true, Tooltip = "Background jobs" },
+                new() { Title = "Logs", Href = "/logvue", Icon = "logs", External = true, Tooltip = "Log viewer" },
             ],
         });
 

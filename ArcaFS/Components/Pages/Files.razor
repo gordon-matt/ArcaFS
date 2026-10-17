@@ -82,10 +82,16 @@
             {
                 <div class="dropdown">
                     <button class="btn btn-sm btn-primary dropdown-toggle" type="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
+                            aria-expanded="@(newMenuOpen ? "true" : "false")"
+                            @onclick="() => newMenuOpen = !newMenuOpen">
                         <i class="bi bi-plus-lg me-1"></i> New
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
+                    @if (newMenuOpen)
+                    {
+                        <div class="arca-menu-dismiss" @onclick="() => newMenuOpen = false"></div>
+                    }
+                    <ul class="dropdown-menu dropdown-menu-end @(newMenuOpen ? "show" : null)"
+                        @onclick="() => newMenuOpen = false">
                         <li>
                             <button class="dropdown-item"
                                     @onclick="() => HandleActionAsync(FileAction.NewFolder)">
@@ -135,10 +141,17 @@
 
             <div class="dropdown">
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" title="Sort and options">
+                        title="Sort and options"
+                        aria-expanded="@(optionsMenuOpen ? "true" : "false")"
+                        @onclick="() => optionsMenuOpen = !optionsMenuOpen">
                     <i class="bi bi-sliders"></i>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
+                @if (optionsMenuOpen)
+                {
+                    <div class="arca-menu-dismiss" @onclick="() => optionsMenuOpen = false"></div>
+                }
+                <ul class="dropdown-menu dropdown-menu-end @(optionsMenuOpen ? "show" : null)"
+                    @onclick="() => optionsMenuOpen = false">
                     <li><h6 class="dropdown-header">Sort by</h6></li>
                     @foreach (var field in Enum.GetValues<ListingSortField>())
                     {
@@ -326,6 +339,9 @@
             : EmptyPaths;
 
     private static readonly HashSet<string> EmptyPaths = [];
+
+    private bool newMenuOpen;
+    private bool optionsMenuOpen;
 
     /// <summary>
     /// Items the preview modal can page through. Restricted to media so arrowing along doesn't

@@ -33,15 +33,14 @@ else
                         <input id="set-name" class="form-control" @bind="form.SiteName" />
                     </div>
                     <div class="mb-0">
-                        <label class="form-label" for="set-theme">Default theme</label>
+                        <label class="form-label" for="set-theme">Default scheme</label>
                         <select id="set-theme" class="form-select" @bind="form.Theme">
-                            @foreach (string theme in BootswatchThemes.All)
-                            {
-                                <option value="@theme">@theme</option>
-                            }
+                            <option value="system">Match the operating system</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
                         </select>
                         <div class="form-text">
-                            Each browser can override this from the palette in the top bar.
+                            Used until this browser chooses light or dark from the top bar.
                         </div>
                     </div>
                     <div class="mb-0 mt-3">

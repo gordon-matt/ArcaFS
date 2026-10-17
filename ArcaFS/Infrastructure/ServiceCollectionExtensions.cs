@@ -35,13 +35,18 @@ public static class ServiceCollectionExtensions
     /// first-run gate. Shared by the web host and the desktop host.
     /// </summary>
     /// <remarks>
-    /// Scoped to the circuit, so one user's notifications and sidebar refreshes stay theirs. The
-    /// asset paths in <c>ForgeBootstrapOptions</c> already default to where <c>libman.json</c> restores
-    /// bootswatch, bootstrap and bootstrap-icons, so only the theme key differs.
+    /// Scoped to the circuit, so one user's toasts and sidebar refreshes stay theirs. The scheme
+    /// is light, dark, or the operating system, stored in this browser.
     /// </remarks>
     public static IServiceCollection AddArcaFsShell(this IServiceCollection services)
     {
-        services.AddNetForgeBootstrapComponents(ui => ui.ThemeStorageKey = Constants.ClientThemeLocalStorageKey);
+        services.AddNetForgeComponents(ui =>
+        {
+            ui.ThemeStorageKey = Constants.ClientThemeLocalStorageKey;
+            ui.DefaultColorScheme = "system";
+            ui.AccentColor = "#0f766e";
+            ui.AccentColorDark = "#5eead4";
+        });
 
         services.Configure<ForgeShellOptions>(shell =>
         {
@@ -54,8 +59,8 @@ public static class ServiceCollectionExtensions
             shell.SearchPlaceholder = "Search files";
             shell.UserMenuItems =
             [
-                new() { Title = "Profile", Href = "/profile", Icon = "bi-person" },
-                new() { Title = "My shares", Href = "/shares", Icon = "bi-link-45deg" },
+                new() { Title = "Profile", Href = "/profile", Icon = "user" },
+                new() { Title = "My shares", Href = "/shares", Icon = "link" },
             ];
         });
 

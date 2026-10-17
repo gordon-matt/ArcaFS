@@ -20,7 +20,7 @@ global using Microsoft.EntityFrameworkCore;
 global using Heroicsoft.NetForge.Abstractions;
 global using Heroicsoft.NetForge.Abstractions.Auth;
 global using Heroicsoft.NetForge.Authentication;
-global using Heroicsoft.NetForge.Components.Bootstrap;
+global using Heroicsoft.NetForge.Components;
 global using Heroicsoft.NetForge.Components.Services;
 global using Heroicsoft.NetForge.Components.Shell;
 global using Heroicsoft.NetForge.Hangfire;

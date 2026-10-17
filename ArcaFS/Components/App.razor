@@ -1,6 +1,9 @@
 ﻿<ForgeHostPage Title="ArcaFS"
                 IconHref="img/Icon.png"
                 AppStylesheet="@Assets["css/site.css"]">
+    <AdditionalHead>
+        <link rel="stylesheet" href="@Assets["lib/bootstrap-icons/font/bootstrap-icons.min.css"]" />
+    </AdditionalHead>
     <ChildContent>
         <Routes @rendermode="InteractiveServer" />
     </ChildContent>
