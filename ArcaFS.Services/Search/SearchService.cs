@@ -422,12 +422,9 @@ public sealed class SearchService(
 
         var names = unindexed.Select(s => s.Name).ToList();
 
-        if (names.Count == 0)
-        {
-            return null;
-        }
-
-        return names.Count == 1
+        return names.Count == 0
+            ? null
+            : names.Count == 1
             ? $"'{names[0]}' has not been indexed yet, so its contents are not searchable."
             : $"{names.Count} sources have not been indexed yet, so their contents are not searchable.";
     }

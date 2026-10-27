@@ -37,12 +37,7 @@ public sealed class FilesController(
     {
         var result = await fileSystemService.OpenReadAsync(sourceId, path, null, cancellationToken);
 
-        if (!result.IsSuccess)
-        {
-            return this.FromResult(result);
-        }
-
-        return StreamFile(result.Value, inline);
+        return !result.IsSuccess ? this.FromResult(result) : StreamFile(result.Value, inline);
     }
 
     /// <summary>

@@ -416,15 +416,12 @@ public sealed class ShareService(
 
         var missing = needed & ~target.Permissions;
 
-        if (missing != FilePermission.None)
-        {
-            return Result.Invalid(new ValidationError(
+        return missing != FilePermission.None
+            ? Result.Invalid(new ValidationError(
                 nameof(mode),
                 "You cannot create a link that grants more than you can do yourself. " +
-                $"Missing: {missing.ToDisplayList()}."));
-        }
-
-        return Result.Success();
+                $"Missing: {missing.ToDisplayList()}."))
+            : Result.Success();
     }
 
     private async Task<Result<Share>> FindOwnedAsync(int id, CancellationToken cancellationToken)
@@ -472,22 +469,11 @@ public sealed class ShareService(
             CancellationToken = cancellationToken,
         });
 
-        if (share is null || share.IsDisabled || share.Source.IsDisabled)
-        {
-            return null;
-        }
-
-        if (share.ExpiresAt is DateTime expiry && expiry <= DateTime.UtcNow)
-        {
-            return null;
-        }
-
-        if (share.MaxDownloads is int max && share.DownloadCount >= max)
-        {
-            return null;
-        }
-
-        return share;
+        return share is null || share.IsDisabled || share.Source.IsDisabled
+            ? null
+            : share.ExpiresAt is DateTime expiry && expiry <= DateTime.UtcNow
+            ? null
+            : share.MaxDownloads is int max && share.DownloadCount >= max ? null : share;
     }
 
     private static ShareDto ToDto(Share share, string? ownerDisplayName) => new(

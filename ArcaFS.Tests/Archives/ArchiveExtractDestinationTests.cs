@@ -45,7 +45,7 @@ public class ArchiveExtractDestinationTests : IDisposable
     {
         File.WriteAllText(Path.Combine(root, "notes.txt"), "already here");
 
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("notes.txt", false)]);
 
@@ -58,7 +58,7 @@ public class ArchiveExtractDestinationTests : IDisposable
     [Fact]
     public void DoesNotTreatAMissingFileAsAConflict()
     {
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("notes.txt", false)]);
 
@@ -70,7 +70,7 @@ public class ArchiveExtractDestinationTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(root, "notes.txt"));
 
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("notes.txt", false)]);
 
@@ -82,7 +82,7 @@ public class ArchiveExtractDestinationTests : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(root, "docs"));
 
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("docs/", true), ("docs/notes.txt", false)]);
 
@@ -94,7 +94,7 @@ public class ArchiveExtractDestinationTests : IDisposable
     {
         File.WriteAllText(Path.Combine(root, "docs"), "not a folder");
 
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("docs/", true)]);
 
@@ -107,7 +107,7 @@ public class ArchiveExtractDestinationTests : IDisposable
         Directory.CreateDirectory(Path.Combine(root, "photos"));
         File.WriteAllText(Path.Combine(root, "photos", "a.txt"), "a");
 
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("photos/a.txt", false), ("photos/b.txt", false)]);
 
@@ -124,7 +124,7 @@ public class ArchiveExtractDestinationTests : IDisposable
         File.WriteAllText(Path.Combine(root, "b.txt"), "b");
         File.WriteAllText(Path.Combine(root, "c.txt"), "c");
 
-        IReadOnlyList<string> conflicts = ArchiveService.FindConflictingExtractNames(
+        var conflicts = ArchiveService.FindConflictingExtractNames(
             root,
             [("a.txt", false), ("b.txt", false), ("c.txt", false)]);
 

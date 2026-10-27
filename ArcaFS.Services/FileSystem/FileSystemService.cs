@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.IO.Compression;
-
 namespace ArcaFS.Services.FileSystem;
 
 /// <summary>
@@ -297,26 +294,9 @@ public sealed partial class FileSystemService(
         FileSystemInfo entry,
         Source source,
         bool showHidden,
-        ExcludeMatcher excludes)
-    {
+        ExcludeMatcher excludes) =>
         // In-progress uploads are real files on disk but not yet real content.
-        if (entry.Name.EndsWith(Constants.UploadTempSuffix, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        if (!source.FollowSymlinks && entry.LinkTarget is not null)
-        {
-            return true;
-        }
-
-        if (!showHidden && source.IgnoreHiddenFiles && IsHidden(entry))
-        {
-            return true;
-        }
-
-        return excludes.IsExcluded(entry.Name);
-    }
+        entry.Name.EndsWith(Constants.UploadTempSuffix, StringComparison.Ordinal) || (!source.FollowSymlinks && entry.LinkTarget is not null) || (!showHidden && source.IgnoreHiddenFiles && IsHidden(entry)) || excludes.IsExcluded(entry.Name);
 
     private static List<FileSystemItemDto> ApplyFilter(List<FileSystemItemDto> items, string? filter)
     {

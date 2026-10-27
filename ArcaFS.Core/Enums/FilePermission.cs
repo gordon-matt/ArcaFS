@@ -126,15 +126,7 @@ public static class FilePermissionExtensions
     /// like "Missing: Create, Modify". <see cref="ToDisplayName"/> only names a mask that
     /// happens to be a single flag or a known preset.
     /// </summary>
-    public static string ToDisplayList(this FilePermission value)
-    {
-        if (value == FilePermission.None)
-        {
-            return "None";
-        }
-
-        return string.Join(", ", value.ToDisplayNames());
-    }
+    public static string ToDisplayList(this FilePermission value) => value == FilePermission.None ? "None" : string.Join(", ", value.ToDisplayNames());
 
     /// <summary>
     /// The display name of each set flag, for rendering a mask as individual chips rather than

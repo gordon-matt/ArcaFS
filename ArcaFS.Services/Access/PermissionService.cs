@@ -40,12 +40,7 @@ public sealed class PermissionService(
 
         try
         {
-            if (currentPrincipal is not null)
-            {
-                return currentPrincipal;
-            }
-
-            return await LoadCurrentPrincipalAsync(cancellationToken);
+            return currentPrincipal is not null ? currentPrincipal : await LoadCurrentPrincipalAsync(cancellationToken);
         }
         finally
         {
@@ -67,7 +62,7 @@ public sealed class PermissionService(
         string? userName = userContext.GetCurrentUserName();
 
         var groupIds = string.IsNullOrEmpty(userId)
-            ? new HashSet<int>()
+            ? []
             : (await groupMemberRepository.FindAsync(new SearchOptions<AccessGroupMember>
             {
                 Query = m => m.UserId == userId,
@@ -366,12 +361,7 @@ public sealed class PermissionService(
 
         // An anonymous visitor has no name to substitute; falling back to the root would hand
         // them the whole source, so deny by giving them an unreachable scope instead.
-        if (VirtualPath.HasTokens(expanded))
-        {
-            return Constants.RootPath;
-        }
-
-        return VirtualPath.Normalize(expanded);
+        return VirtualPath.HasTokens(expanded) ? Constants.RootPath : VirtualPath.Normalize(expanded);
     }
 
     /// <summary>

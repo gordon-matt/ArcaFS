@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using ArcaFS.Data.Entities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;

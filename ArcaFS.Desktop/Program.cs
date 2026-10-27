@@ -1,5 +1,4 @@
 using ArcaFS.Desktop;
-using ArcaFS.Infrastructure;
 using ElectronNET.API;
 using ElectronNET.API.Entities;
 using Hangfire;

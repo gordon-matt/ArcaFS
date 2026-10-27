@@ -86,21 +86,18 @@ public static class PermissionResolver
                 ? granted | rule.Permissions
                 : granted & ~rule.Permissions;
 
-            if (trace is not null)
+            trace?.Add(new PermissionTraceEntry
             {
-                trace.Add(new PermissionTraceEntry
-                {
-                    Description = $"{rule.Effect} {Describe(rule.Permissions)} for {Describe(rule)} at {candidate.ExpandedPath}",
-                    RuleId = rule.Id,
-                    RulePath = candidate.ExpandedPath,
-                    SubjectType = rule.SubjectType,
-                    SubjectId = rule.SubjectId,
-                    Effect = rule.Effect,
-                    RulePermissions = rule.Permissions,
-                    Before = before,
-                    After = granted,
-                });
-            }
+                Description = $"{rule.Effect} {Describe(rule.Permissions)} for {Describe(rule)} at {candidate.ExpandedPath}",
+                RuleId = rule.Id,
+                RulePath = candidate.ExpandedPath,
+                SubjectType = rule.SubjectType,
+                SubjectId = rule.SubjectId,
+                Effect = rule.Effect,
+                RulePermissions = rule.Permissions,
+                Before = before,
+                After = granted,
+            });
         }
 
         granted = Clamp(granted, source, principal, trace, out bool clamped);

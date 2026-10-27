@@ -1,4 +1,3 @@
-using ArcaFS.Services.Indexing;
 using ArcaFS.Services.Thumbnails;
 using Hangfire;
 

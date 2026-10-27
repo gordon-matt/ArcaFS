@@ -40,12 +40,10 @@ public class FileKindsTests
     [InlineData("application/octet-stream")]
     [InlineData("")]
     [InlineData(null)]
-    public void RefusesToServeScriptableOrUnknownContentInline(string? mimeType)
-    {
+    public void RefusesToServeScriptableOrUnknownContentInline(string? mimeType) =>
         // Serving these inline from the app's own origin would turn any upload into stored XSS,
         // so they must always go out as attachments.
         Assert.False(FileKinds.IsInlineSafe(mimeType));
-    }
 
     [Theory]
     [InlineData("Program.cs", "csharp")]

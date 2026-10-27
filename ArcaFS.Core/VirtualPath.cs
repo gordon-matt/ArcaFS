@@ -29,7 +29,7 @@ public static class VirtualPath
         }
 
         var segments = new List<string>();
-        foreach (var span in path.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
+        foreach (string span in path.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
         {
             string segment = span.Trim();
             if (segment.Length == 0 || segment == ".")
@@ -114,22 +114,9 @@ public static class VirtualPath
     /// underneath it. Compares whole segments, so <c>/ab</c> is not treated as a child of
     /// <c>/a</c>. Case-insensitive to match Windows and macOS filesystem behaviour.
     /// </summary>
-    public static bool IsSameOrUnder(string candidate, string ancestor)
-    {
-        if (ancestor == Constants.RootPath)
-        {
-            return true;
-        }
-
-        if (candidate.Equals(ancestor, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return candidate.Length > ancestor.Length
+    public static bool IsSameOrUnder(string candidate, string ancestor) => ancestor == Constants.RootPath || candidate.Equals(ancestor, StringComparison.OrdinalIgnoreCase) || (candidate.Length > ancestor.Length
             && candidate[ancestor.Length] == Constants.PathSeparator
-            && candidate.StartsWith(ancestor, StringComparison.OrdinalIgnoreCase);
-    }
+            && candidate.StartsWith(ancestor, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Strictly below <paramref name="ancestor"/> — excludes the ancestor itself.</summary>
     public static bool IsStrictlyUnder(string candidate, string ancestor) =>
@@ -141,38 +128,23 @@ public static class VirtualPath
     /// Returns <c>null</c> when it isn't inside the scope. Used to hide a user's scope prefix
     /// from the paths their browser ever sees.
     /// </summary>
-    public static string? MakeRelativeTo(string candidate, string scope)
-    {
-        if (!IsSameOrUnder(candidate, scope))
-        {
-            return null;
-        }
-
-        if (scope == Constants.RootPath)
-        {
-            return candidate;
-        }
-
-        return candidate.Length == scope.Length
+    public static string? MakeRelativeTo(string candidate, string scope) => !IsSameOrUnder(candidate, scope)
+            ? null
+            : scope == Constants.RootPath
+            ? candidate
+            : candidate.Length == scope.Length
             ? Constants.RootPath
             : Normalize(candidate[scope.Length..]);
-    }
 
     /// <summary>
     /// Expands <c>${username}</c> / <c>${userid}</c> in a rule path or default scope. Tokens are
     /// slug-sanitised so a display name containing a slash can't widen the rule's reach.
     /// </summary>
-    public static string ExpandTokens(string path, string? userName, string? userId)
-    {
-        if (string.IsNullOrEmpty(path) || !path.Contains("${", StringComparison.Ordinal))
-        {
-            return path;
-        }
-
-        return path
+    public static string ExpandTokens(string path, string? userName, string? userId) => string.IsNullOrEmpty(path) || !path.Contains("${", StringComparison.Ordinal)
+            ? path
+            : path
             .Replace(Constants.PathTokens.UserName, SanitizeSegment(userName), StringComparison.OrdinalIgnoreCase)
             .Replace(Constants.PathTokens.UserId, SanitizeSegment(userId), StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>True when the path still contains an unexpanded token.</summary>
     public static bool HasTokens(string? path) =>
@@ -189,7 +161,7 @@ public static class VirtualPath
             return "_";
         }
 
-        var buffer = new char[value.Length];
+        char[] buffer = new char[value.Length];
         for (int i = 0; i < value.Length; i++)
         {
             char c = value[i];
@@ -260,11 +232,8 @@ public static class VirtualPath
         string rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRoot));
         string full = Path.GetFullPath(physicalPath);
 
-        if (full.Length <= rootFull.Length)
-        {
-            return Constants.RootPath;
-        }
-
-        return Normalize(full[rootFull.Length..].Replace(Path.DirectorySeparatorChar, Constants.PathSeparator));
+        return full.Length <= rootFull.Length
+            ? Constants.RootPath
+            : Normalize(full[rootFull.Length..].Replace(Path.DirectorySeparatorChar, Constants.PathSeparator));
     }
 }

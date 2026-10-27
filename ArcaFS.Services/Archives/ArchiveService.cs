@@ -446,15 +446,9 @@ public sealed class ArchiveService(
     /// a file and extracting it again should put that file back next to the archive, not inside
     /// a new folder named after it.
     /// </summary>
-    internal static string DefaultExtractDestination(string archiveScopedPath, string? requestedDestination)
-    {
-        if (!string.IsNullOrWhiteSpace(requestedDestination))
-        {
-            return VirtualPath.Normalize(requestedDestination);
-        }
-
-        return VirtualPath.GetParent(VirtualPath.Normalize(archiveScopedPath)) ?? Constants.RootPath;
-    }
+    internal static string DefaultExtractDestination(string archiveScopedPath, string? requestedDestination) => !string.IsNullOrWhiteSpace(requestedDestination)
+            ? VirtualPath.Normalize(requestedDestination)
+            : VirtualPath.GetParent(VirtualPath.Normalize(archiveScopedPath)) ?? Constants.RootPath;
 
     /// <summary>
     /// Names of archive entries that would overwrite something already on disk. Used to refuse
@@ -503,15 +497,7 @@ public sealed class ArchiveService(
         return names;
     }
 
-    internal static string FormatAlreadyExistsMessage(IReadOnlyList<string> names)
-    {
-        if (names.Count == 1)
-        {
-            return $"'{names[0]}' already exists here.";
-        }
-
-        return "One or more files already exist here.";
-    }
+    internal static string FormatAlreadyExistsMessage(IReadOnlyList<string> names) => names.Count == 1 ? $"'{names[0]}' already exists here." : "One or more files already exist here.";
 
     /// <summary>
     /// Maps an archive entry name to a path inside <paramref name="destinationRoot"/>, or null

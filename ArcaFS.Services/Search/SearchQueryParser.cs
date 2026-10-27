@@ -94,7 +94,7 @@ public static class SearchQueryParser
             // full boolean tree and covers what people actually type.
             if (token.Contains('|'))
             {
-                var alternatives = token
+                string[] alternatives = token
                     .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                 if (alternatives.Length > 1)
@@ -219,12 +219,7 @@ public static class SearchQueryParser
     {
         bytes = 0;
 
-        if (!value.StartsWith($"{name}=", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return TryParseSize(value[(name.Length + 1)..], out bytes);
+        return value.StartsWith($"{name}=", StringComparison.OrdinalIgnoreCase) && TryParseSize(value[(name.Length + 1)..], out bytes);
     }
 
     /// <summary>
@@ -280,12 +275,7 @@ public static class SearchQueryParser
     {
         utc = null;
 
-        if (!value.StartsWith($"{name}=", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return TryParseDate(value[(name.Length + 1)..], out utc);
+        return value.StartsWith($"{name}=", StringComparison.OrdinalIgnoreCase) && TryParseDate(value[(name.Length + 1)..], out utc);
     }
 
     /// <summary>

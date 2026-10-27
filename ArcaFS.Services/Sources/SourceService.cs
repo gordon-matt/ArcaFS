@@ -328,25 +328,16 @@ public sealed class SourceService(
             CancellationToken = cancellationToken,
         });
 
-        if (clash is not null)
-        {
-            return Result.Conflict($"A source named '{name}' already exists.");
-        }
-
-        if (request.IndexIntervalMinutes < 0)
-        {
-            return Result.Invalid(new ValidationError(
-                nameof(request.IndexIntervalMinutes), "The interval cannot be negative."));
-        }
-
-        if (request.CreateUserDirectory && string.IsNullOrWhiteSpace(request.DefaultUserScope))
-        {
-            return Result.Invalid(new ValidationError(
+        return clash is not null
+            ? Result.Conflict($"A source named '{name}' already exists.")
+            : request.IndexIntervalMinutes < 0
+            ? Result.Invalid(new ValidationError(
+                nameof(request.IndexIntervalMinutes), "The interval cannot be negative."))
+            : request.CreateUserDirectory && string.IsNullOrWhiteSpace(request.DefaultUserScope)
+            ? Result.Invalid(new ValidationError(
                 nameof(request.CreateUserDirectory),
-                "Creating per-user folders needs a default user scope, such as '/${username}'."));
-        }
-
-        return Result.Success();
+                "Creating per-user folders needs a default user scope, such as '/${username}'."))
+            : Result.Success();
     }
 
     private static void Apply(Source source, CreateSourceRequest request)

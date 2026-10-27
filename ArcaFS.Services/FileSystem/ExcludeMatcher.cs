@@ -15,7 +15,10 @@ public sealed partial class ExcludeMatcher
 
     private readonly Regex[] patterns;
 
-    private ExcludeMatcher(Regex[] patterns) => this.patterns = patterns;
+    private ExcludeMatcher(Regex[] patterns)
+    {
+        this.patterns = patterns;
+    }
 
     /// <summary>
     /// Returns the matcher for <paramref name="source"/>, rebuilding it if the source's patterns

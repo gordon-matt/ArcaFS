@@ -18,9 +18,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddArcaFsDatabase(
         this IServiceCollection services,
         IConfiguration configuration,
-        string provider)
-    {
-        return provider switch
+        string provider) => provider switch
         {
             DatabaseProviders.Sqlite => services.AddArcaFSSqlite(configuration),
             DatabaseProviders.SqlServer => services.AddArcaFSSqlServer(configuration),
@@ -28,7 +26,6 @@ public static class ServiceCollectionExtensions
             DatabaseProviders.MySql => services.AddArcaFSMySql(configuration),
             _ => throw new InvalidOperationException($"Unknown {DatabaseProviders.ConfigurationKey} '{provider}'."),
         };
-    }
 
     /// <summary>
     /// Registers the NetForge shell for ArcaFS: theme and shell options, the sidebar data, and the
@@ -85,7 +82,6 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         string provider)
     {
-
         // Hangfire gets its own connection string when one is supplied, so an operator can keep
         // job state off the application database.
         string connectionString = configuration.GetConnectionString("Hangfire")

@@ -25,7 +25,7 @@ public sealed class NoneUserInfoService(IUserContextService userContext) : IUser
 
         IReadOnlyDictionary<string, UserInfo> result = userIds.Contains(user.Id)
             ? new Dictionary<string, UserInfo> { [user.Id] = user }
-            : new Dictionary<string, UserInfo>();
+            : [];
 
         return Task.FromResult(result);
     }

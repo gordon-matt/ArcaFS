@@ -1,4 +1,3 @@
-using ArcaFS.Components.Shared;
 using Microsoft.AspNetCore.Components;
 
 namespace ArcaFS.Components.Pages.Admin;
@@ -114,7 +113,7 @@ public partial class Access
 
         try
         {
-            Result result = form.Id == 0
+            var result = form.Id == 0
                 ? (await AccessRuleService.CreateAsync(form.ToCreate())).ToVoid()
                 : (await AccessRuleService.UpdateAsync(form.ToUpdate())).ToVoid();
 

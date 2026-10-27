@@ -13,7 +13,7 @@ public sealed class AccessRuleService(
         int sourceId,
         CancellationToken cancellationToken = default)
     {
-        var authorized = await CanManageAsync(sourceId, Constants.RootPath, cancellationToken);
+        bool authorized = await CanManageAsync(sourceId, Constants.RootPath, cancellationToken);
         if (!authorized)
         {
             return Result<IReadOnlyList<AccessRuleDto>>.Forbidden();

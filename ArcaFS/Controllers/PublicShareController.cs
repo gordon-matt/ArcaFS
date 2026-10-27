@@ -1,4 +1,3 @@
-using ArcaFS.Services.Shares;
 using ArcaFS.Services.Thumbnails;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

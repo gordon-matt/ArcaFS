@@ -54,13 +54,7 @@ public static class UserHomePath
             : Constants.PathSeparator + match;
     }
 
-    private static string? FirstExisting(IReadOnlyList<string> names, string? wanted)
-    {
-        if (string.IsNullOrWhiteSpace(wanted) || wanted == "_")
-        {
-            return null;
-        }
-
-        return names.FirstOrDefault(n => n.Equals(wanted, StringComparison.OrdinalIgnoreCase));
-    }
+    private static string? FirstExisting(IReadOnlyList<string> names, string? wanted) => string.IsNullOrWhiteSpace(wanted) || wanted == "_"
+            ? null
+            : names.FirstOrDefault(n => n.Equals(wanted, StringComparison.OrdinalIgnoreCase));
 }

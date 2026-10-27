@@ -1,5 +1,3 @@
-using ArcaFS.Components.Shared;
-
 namespace ArcaFS.Components.Pages.Admin;
 
 public partial class Sources
@@ -92,7 +90,7 @@ public partial class Sources
 
         try
         {
-            Result<SourceDto> result = form.Id == 0
+            var result = form.Id == 0
                 ? await SourceService.CreateAsync(form.ToCreate())
                 : await SourceService.UpdateAsync(form.ToUpdate());
 

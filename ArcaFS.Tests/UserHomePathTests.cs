@@ -6,7 +6,10 @@ public class UserHomePathTests : IDisposable
         Path.GetTempPath(),
         "arcafs-home-" + Guid.NewGuid().ToString("N"));
 
-    public UserHomePathTests() => Directory.CreateDirectory(root);
+    public UserHomePathTests()
+    {
+        Directory.CreateDirectory(root);
+    }
 
     public void Dispose()
     {

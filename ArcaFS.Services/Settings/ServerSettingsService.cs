@@ -36,17 +36,11 @@ public sealed class ServerSettingsService(
         {
             // Booleans are stored as "true"/"false" and enums by name, both of which
             // ChangeType cannot handle, so they are converted explicitly.
-            if (typeof(T) == typeof(bool) || typeof(T) == typeof(bool?))
-            {
-                return (T)(object)bool.Parse(raw);
-            }
-
-            if (typeof(T).IsEnum)
-            {
-                return (T)Enum.Parse(typeof(T), raw, ignoreCase: true);
-            }
-
-            return (T)Convert.ChangeType(raw, typeof(T), CultureInfo.InvariantCulture);
+            return typeof(T) == typeof(bool) || typeof(T) == typeof(bool?)
+                ? (T)(object)bool.Parse(raw)
+                : typeof(T).IsEnum
+                ? (T)Enum.Parse(typeof(T), raw, ignoreCase: true)
+                : (T)Convert.ChangeType(raw, typeof(T), CultureInfo.InvariantCulture);
         }
         catch (Exception ex) when (ex is FormatException or InvalidCastException or ArgumentException)
         {

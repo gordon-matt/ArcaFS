@@ -193,24 +193,11 @@ public static class FileKinds
     /// anything unrecognised are always sent as attachments. Only media the browser decodes
     /// rather than executes, plus PDF, is listed.
     /// </remarks>
-    public static bool IsInlineSafe(string? mimeType)
-    {
-        if (string.IsNullOrEmpty(mimeType))
-        {
-            return false;
-        }
-
-        if (mimeType.Equals("image/svg+xml", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+    public static bool IsInlineSafe(string? mimeType) => !string.IsNullOrEmpty(mimeType) && !mimeType.Equals("image/svg+xml", StringComparison.OrdinalIgnoreCase) && (mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
             || mimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
             || mimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase)
             || mimeType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
-            || mimeType.Equals("text/plain", StringComparison.OrdinalIgnoreCase);
-    }
+            || mimeType.Equals("text/plain", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Syntax-highlighting mode name for the in-browser editor, keyed off the extension.

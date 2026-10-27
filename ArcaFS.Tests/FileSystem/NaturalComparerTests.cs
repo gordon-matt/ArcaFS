@@ -21,29 +21,24 @@ public class NaturalComparerTests
     {
         string[] names = ["file10.txt", "file1.txt", "file20.txt", "file2.txt", "file3.txt"];
 
-        var sorted = names.OrderBy(n => n, NaturalComparer.Instance).ToArray();
+        string[] sorted = names.OrderBy(n => n, NaturalComparer.Instance).ToArray();
 
         Assert.Equal(["file1.txt", "file2.txt", "file3.txt", "file10.txt", "file20.txt"], sorted);
     }
 
     [Fact]
-    public void IgnoresLeadingZeros()
-    {
+    public void IgnoresLeadingZeros() =>
         // "007" and "7" name the same number, so neither sorts before the other.
         Assert.Equal(0, NaturalComparer.Instance.Compare("track007", "track7"));
-    }
 
     [Fact]
-    public void IsCaseInsensitive()
-    {
-        Assert.Equal(0, NaturalComparer.Instance.Compare("ReadMe.md", "readme.md"));
-    }
+    public void IsCaseInsensitive() => Assert.Equal(0, NaturalComparer.Instance.Compare("ReadMe.md", "readme.md"));
 
     [Fact]
     public void HandlesVeryLongDigitRunsWithoutOverflowing()
     {
         // Parsing these as integers would throw or wrap; comparing run lengths does not.
-        string small = new string('9', 40);
+        string small = new('9', 40);
         string big = "1" + new string('0', 41);
 
         Assert.True(NaturalComparer.Instance.Compare(small, big) < 0);
@@ -58,8 +53,5 @@ public class NaturalComparerTests
     }
 
     [Fact]
-    public void TreatsAPrefixAsSmallerThanTheLongerName()
-    {
-        Assert.True(NaturalComparer.Instance.Compare("report", "report-final") < 0);
-    }
+    public void TreatsAPrefixAsSmallerThanTheLongerName() => Assert.True(NaturalComparer.Instance.Compare("report", "report-final") < 0);
 }

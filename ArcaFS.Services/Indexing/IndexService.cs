@@ -154,7 +154,7 @@ public sealed class IndexService(
         {
             // Walked depth-first by hand rather than with RecurseSubdirectories so directory
             // sizes and child counts can be accumulated on the way back up.
-            var rootStats = await WalkAsync(
+            var (Files, Directories, Bytes) = await WalkAsync(
                 source,
                 source.Path,
                 Constants.RootPath,
@@ -167,9 +167,9 @@ public sealed class IndexService(
                 lease,
                 cancellationToken);
 
-            fileCount = rootStats.Files;
-            directoryCount = rootStats.Directories;
-            totalBytes = rootStats.Bytes;
+            fileCount = Files;
+            directoryCount = Directories;
+            totalBytes = Bytes;
 
             await FlushAsync(pendingInserts, pendingUpdates, cancellationToken);
 
@@ -285,7 +285,7 @@ public sealed class IndexService(
 
             if (entry is DirectoryInfo)
             {
-                var child = await WalkAsync(
+                var (Files, Directories, Bytes) = await WalkAsync(
                     source,
                     entry.FullName,
                     childVirtual,
@@ -298,9 +298,9 @@ public sealed class IndexService(
                     lease,
                     cancellationToken);
 
-                files += child.Files;
-                directories += child.Directories + 1;
-                bytes += child.Bytes;
+                files += Files;
+                directories += Directories + 1;
+                bytes += Bytes;
             }
             else if (entry is FileInfo file)
             {
