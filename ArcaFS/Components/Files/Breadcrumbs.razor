@@ -1,28 +1,20 @@
-@* Path trail. Every segment is also a drop target, so items can be moved up the tree. *@
-<nav class="arca-breadcrumb" aria-label="Path">
-    @for (int i = 0; i < Items.Count; i++)
-    {
-        var item = Items[i];
-        bool isLast = i == Items.Count - 1;
-
-        if (isLast)
+@* Path trail. Anchors keep the app's breadcrumb classes so a drop highlight can land on them. *@
+<Heroicsoft.NetForge.Components.Navigation.Breadcrumbs TItem="BreadcrumbDto"
+                                                       Items="Items"
+                                                       Class="arca-breadcrumb"
+                                                       AriaLabel="Path"
+                                                       Text="item => item.Name"
+                                                       Href="item => BuildUrl(item.Path)"
+                                                       OnNavigate="item => OnNavigate.InvokeAsync(item.Path)"
+                                                       SeparatorClass="arca-breadcrumb-sep"
+                                                       CurrentClass="arca-breadcrumb-current">
+    <Leading Context="item">
+        @if (item.Path == Constants.RootPath)
         {
-            <span class="arca-breadcrumb-current" aria-current="page">@item.Name</span>
+            <i class="bi bi-hdd me-1"></i>
         }
-        else
-        {
-            <a href="@BuildUrl(item.Path)" @onclick:preventDefault
-               @onclick="() => OnNavigate.InvokeAsync(item.Path)">
-                @if (i == 0)
-                {
-                    <i class="bi bi-hdd me-1"></i>
-                }
-                @item.Name
-            </a>
-            <span class="arca-breadcrumb-sep">/</span>
-        }
-    }
-</nav>
+    </Leading>
+</Heroicsoft.NetForge.Components.Navigation.Breadcrumbs>
 
 @code {
     [Parameter, EditorRequired]

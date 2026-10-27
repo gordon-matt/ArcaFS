@@ -111,8 +111,7 @@ else
     @if (stats.RecentActivity.Count > 0)
     {
         <h2 class="h6">Recent activity</h2>
-        <div class="table-responsive">
-            <table class="table table-sm align-middle">
+        <Table Framed="false" Class="table table-sm align-middle">
                 <tbody>
                     @foreach (var activity in stats.RecentActivity)
                     {
@@ -132,8 +131,7 @@ else
                         </tr>
                     }
                 </tbody>
-            </table>
-        </div>
+            </Table>
     }
 }
 

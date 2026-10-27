@@ -7,7 +7,7 @@
 }
 else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact)
 {
-    <table class="table table-sm arca-list-table @(ViewMode == ListingViewMode.Compact ? "table-borderless" : null)">
+    <Table Framed="false" Class="@($"table table-sm arca-list-table {(ViewMode == ListingViewMode.Compact ? "table-borderless" : null)}")">
         <thead>
             <tr>
                 <th style="width: 2.5rem;" @onclick:stopPropagation="true">
@@ -72,7 +72,7 @@ else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact
                 </tr>
             }
         </tbody>
-    </table>
+    </Table>
 }
 else
 {

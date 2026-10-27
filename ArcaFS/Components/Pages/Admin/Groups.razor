@@ -34,8 +34,7 @@ else if (groups.Count == 0)
 else
 {
     <div class="card">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+        <Table Framed="false" Class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -90,8 +89,7 @@ else
                         </tr>
                     }
                 </tbody>
-            </table>
-        </div>
+            </Table>
     </div>
 }
 
@@ -110,12 +108,14 @@ else
                         <div class="alert alert-danger py-2 small">@modalError</div>
                     }
                     <div class="mb-3">
-                        <label class="form-label" for="group-name">Name</label>
-                        <input id="group-name" class="form-control" @bind="form.Name" />
+                        <Field Label="Name" LabelClass="form-label" For="group-name">
+<input id="group-name" class="form-control" @bind="form.Name" />
+</Field>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="group-desc">Description</label>
-                        <input id="group-desc" class="form-control" @bind="form.Description" />
+                        <Field Label="Description" LabelClass="form-label" For="group-desc">
+<input id="group-desc" class="form-control" @bind="form.Description" />
+</Field>
                     </div>
                     <div class="form-label">Members</div>
                     @foreach (var user in users)

@@ -29,26 +29,29 @@ else
                 <div class="card-header">Appearance</div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label" for="set-name">Site name</label>
-                        <input id="set-name" class="form-control" @bind="form.SiteName" />
+                        <Field Label="Site name" LabelClass="form-label" For="set-name">
+<input id="set-name" class="form-control" @bind="form.SiteName" />
+</Field>
                     </div>
                     <div class="mb-0">
-                        <label class="form-label" for="set-theme">Default scheme</label>
-                        <select id="set-theme" class="form-select" @bind="form.Theme">
+                        <Field Label="Default scheme" LabelClass="form-label" For="set-theme">
+<select id="set-theme" class="form-select" @bind="form.Theme">
                             <option value="system">Match the operating system</option>
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
                         </select>
+</Field>
                         <div class="form-text">
                             Used until this browser chooses light or dark from the top bar.
                         </div>
                     </div>
                     <div class="mb-0 mt-3">
-                        <label class="form-label" for="set-open">Open files in</label>
-                        <select id="set-open" class="form-select" @bind="form.OpenFilesIn">
+                        <Field Label="Open files in" LabelClass="form-label" For="set-open">
+<select id="set-open" class="form-select" @bind="form.OpenFilesIn">
                             <option value="@FileOpenTarget.Dialog">A dialog over the folder</option>
                             <option value="@FileOpenTarget.Page">A full page</option>
                         </select>
+</Field>
                         <div class="form-text">
                             Images, PDFs, media and text all use this. Choose Edit from the
                             context menu when you want the text editor.

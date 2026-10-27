@@ -45,8 +45,7 @@
     else
     {
         <div class="card">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+            <Table Framed="false" Class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>User</th>
@@ -139,8 +138,7 @@
                             </tr>
                         }
                     </tbody>
-                </table>
-            </div>
+                </Table>
         </div>
     }
 
@@ -162,25 +160,30 @@
                         @if (isCreate)
                         {
                             <div class="mb-3">
-                                <label class="form-label" for="user-name">Username</label>
-                                <input id="user-name" class="form-control" @bind="form.UserName" autocomplete="off" />
+                                <Field Label="Username" LabelClass="form-label" For="user-name">
+<input id="user-name" class="form-control" @bind="form.UserName" autocomplete="off" />
+</Field>
                             </div>
                         }
 
                         <div class="mb-3">
-                            <label class="form-label" for="user-email">Email</label>
-                            <input id="user-email" class="form-control" type="email" @bind="form.Email" />
+                            <Field Label="Email" LabelClass="form-label" For="user-email">
+<input id="user-email" class="form-control" type="email" @bind="form.Email" />
+</Field>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label" for="user-display">Display name</label>
-                            <input id="user-display" class="form-control" @bind="form.DisplayName" />
+                            <Field Label="Display name" LabelClass="form-label" For="user-display">
+<input id="user-display" class="form-control" @bind="form.DisplayName" />
+</Field>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label" for="user-password">
-                                @(isCreate ? "Password" : "New password")
-                            </label>
-                            <input id="user-password" class="form-control" type="password"
+                            <Field LabelClass="form-label" For="user-password">
+<LabelContent>@(isCreate ? "Password" : "New password")</LabelContent>
+<ChildContent>
+<input id="user-password" class="form-control" type="password"
                                    autocomplete="new-password" @bind="form.Password" />
+</ChildContent>
+</Field>
                             @if (!isCreate)
                             {
                                 <div class="form-text">Leave blank to keep the current password.</div>
@@ -252,8 +255,7 @@ else
     else
     {
         <div class="card">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+            <Table Framed="false" Class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>User</th>
@@ -284,8 +286,7 @@ else
                             </tr>
                         }
                     </tbody>
-                </table>
-            </div>
+                </Table>
         </div>
     }
 }

@@ -21,8 +21,8 @@
 
 <div class="row g-3 mb-3">
     <div class="col-md-6">
-        <label class="form-label" for="access-source">Source</label>
-        <select id="access-source" class="form-select" value="@selectedSourceId"
+        <Field Label="Source" LabelClass="form-label" For="access-source">
+<select id="access-source" class="form-select" value="@selectedSourceId"
                 @onchange="OnSourceChangedAsync">
             <option value="0">Select a source…</option>
             @if (sources is not null)
@@ -33,6 +33,7 @@
                 }
             }
         </select>
+</Field>
     </div>
 </div>
 
@@ -79,8 +80,8 @@
                             <p class="small text-body-secondary flex-grow-1">@template.Description</p>
                             @if (template.Key == AccessTemplates.SharedReadOnlyOwnerWrites)
                             {
-                                <label class="form-label small" for="template-owner">Owner who can write</label>
-                                <select id="template-owner" class="form-select form-select-sm mb-2"
+                                <Field Label="Owner who can write" LabelClass="form-label small" For="template-owner">
+<select id="template-owner" class="form-select form-select-sm mb-2"
                                         @bind="templateOwnerUserId">
                                     <option value="">Me (@(UserContext.GetCurrentUserName() ?? "current user"))</option>
                                     @foreach (var user in users)
@@ -88,11 +89,12 @@
                                         <option value="@user.Id">@user.Label</option>
                                     }
                                 </select>
+</Field>
                             }
                             @if (template.Key == AccessTemplates.GroupWorkspace)
                             {
-                                <label class="form-label small" for="template-group">Group</label>
-                                <select id="template-group" class="form-select form-select-sm mb-2"
+                                <Field Label="Group" LabelClass="form-label small" For="template-group">
+<select id="template-group" class="form-select form-select-sm mb-2"
                                         @bind="templateGroupId">
                                     <option value="">Pick a group after applying</option>
                                     @foreach (var group in groups)
@@ -100,6 +102,7 @@
                                         <option value="@group.Id">@group.Name</option>
                                     }
                                 </select>
+</Field>
                             }
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox"
@@ -141,8 +144,7 @@
     else
     {
         <div class="card mb-4">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+            <Table Framed="false" Class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
                             <th>Path</th>
@@ -198,8 +200,7 @@
                             </tr>
                         }
                     </tbody>
-                </table>
-            </div>
+                </Table>
         </div>
     }
 
@@ -212,19 +213,21 @@
             </p>
             <div class="row g-2 align-items-end">
                 <div class="col-md-4">
-                    <label class="form-label" for="sim-user">User</label>
-                    <select id="sim-user" class="form-select" @bind="simulateUserId">
+                    <Field Label="User" LabelClass="form-label" For="sim-user">
+<select id="sim-user" class="form-select" @bind="simulateUserId">
                         <option value="">Anonymous visitor</option>
                         @foreach (var user in users)
                         {
                             <option value="@user.Id">@user.Label</option>
                         }
                     </select>
+</Field>
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label" for="sim-path">Path</label>
-                    <input id="sim-path" class="form-control font-monospace"
+                    <Field Label="Path" LabelClass="form-label" For="sim-path">
+<input id="sim-path" class="form-control font-monospace"
                            @bind="simulatePath" @bind:event="oninput" />
+</Field>
                 </div>
                 <div class="col-md-3">
                     <button type="button" class="btn btn-outline-primary w-100"
@@ -260,8 +263,7 @@
                             <span class="arca-chip ms-1">Clamped by host read-only</span>
                         }
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm mb-0">
+                    <Table Framed="false" Class="table table-sm mb-0">
                             <thead>
                                 <tr>
                                     <th>Step</th>
@@ -287,8 +289,7 @@
                                     </tr>
                                 }
                             </tbody>
-                        </table>
-                    </div>
+                        </Table>
                 </div>
             }
         </div>
@@ -311,8 +312,9 @@
                     }
 
                     <div class="mb-3">
-                        <label class="form-label" for="rule-path">Path</label>
-                        <input id="rule-path" class="form-control font-monospace" @bind="form.Path" />
+                        <Field Label="Path" LabelClass="form-label" For="rule-path">
+<input id="rule-path" class="form-control font-monospace" @bind="form.Path" />
+</Field>
                         <div class="form-text">
                             Use <code>@Constants.PathTokens.UserName</code> or
                             <code>@Constants.PathTokens.UserId</code> for per-user folders.
@@ -321,69 +323,76 @@
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label" for="rule-subject-type">Who</label>
-                            <select id="rule-subject-type" class="form-select" @bind="form.SubjectType">
+                            <Field Label="Who" LabelClass="form-label" For="rule-subject-type">
+<select id="rule-subject-type" class="form-select" @bind="form.SubjectType">
                                 @foreach (AccessSubjectType type in Enum.GetValues<AccessSubjectType>())
                                 {
                                     <option value="@type">@type</option>
                                 }
                             </select>
+</Field>
                         </div>
                         <div class="col-md-6">
                             @if (form.SubjectType == AccessSubjectType.User)
                             {
-                                <label class="form-label" for="rule-user">User</label>
-                                <select id="rule-user" class="form-select" @bind="form.SubjectId">
+                                <Field Label="User" LabelClass="form-label" For="rule-user">
+<select id="rule-user" class="form-select" @bind="form.SubjectId">
                                     <option value="">Select…</option>
                                     @foreach (var user in users)
                                     {
                                         <option value="@user.Id">@user.Label</option>
                                     }
                                 </select>
+</Field>
                             }
                             else if (form.SubjectType == AccessSubjectType.Group)
                             {
-                                <label class="form-label" for="rule-group">Group</label>
-                                <select id="rule-group" class="form-select" @bind="form.SubjectId">
+                                <Field Label="Group" LabelClass="form-label" For="rule-group">
+<select id="rule-group" class="form-select" @bind="form.SubjectId">
                                     <option value="">Select…</option>
                                     @foreach (var group in groups)
                                     {
                                         <option value="@group.Id">@group.Name</option>
                                     }
                                 </select>
+</Field>
                             }
                             else if (form.SubjectType == AccessSubjectType.Role)
                             {
-                                <label class="form-label" for="rule-role">Role</label>
-                                <select id="rule-role" class="form-select" @bind="form.SubjectId">
+                                <Field Label="Role" LabelClass="form-label" For="rule-role">
+<select id="rule-role" class="form-select" @bind="form.SubjectId">
                                     <option value="">Select…</option>
                                     <option value="@WellKnownRoles.Administrator">@WellKnownRoles.Administrator</option>
                                     <option value="@WellKnownRoles.User">@WellKnownRoles.User</option>
                                 </select>
+</Field>
                             }
                         </div>
                     </div>
 
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label" for="rule-effect">Effect</label>
-                            <select id="rule-effect" class="form-select" @bind="form.Effect">
+                            <Field Label="Effect" LabelClass="form-label" For="rule-effect">
+<select id="rule-effect" class="form-select" @bind="form.Effect">
                                 <option value="@AccessEffect.Allow">Allow</option>
                                 <option value="@AccessEffect.Deny">Deny</option>
                             </select>
+</Field>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="rule-prop">Reach</label>
-                            <select id="rule-prop" class="form-select" @bind="form.Propagation">
+                            <Field Label="Reach" LabelClass="form-label" For="rule-prop">
+<select id="rule-prop" class="form-select" @bind="form.Propagation">
                                 @foreach (AccessPropagation prop in Enum.GetValues<AccessPropagation>())
                                 {
                                     <option value="@prop">@FormatPropagation(prop)</option>
                                 }
                             </select>
+</Field>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label" for="rule-prio">Priority</label>
-                            <input id="rule-prio" class="form-control" type="number" @bind="form.Priority" />
+                            <Field Label="Priority" LabelClass="form-label" For="rule-prio">
+<input id="rule-prio" class="form-control" type="number" @bind="form.Priority" />
+</Field>
                         </div>
                     </div>
 
@@ -393,8 +402,9 @@
                     </div>
 
                     <div class="mb-0">
-                        <label class="form-label" for="rule-desc">Description</label>
-                        <input id="rule-desc" class="form-control" @bind="form.Description" />
+                        <Field Label="Description" LabelClass="form-label" For="rule-desc">
+<input id="rule-desc" class="form-control" @bind="form.Description" />
+</Field>
                     </div>
                 </div>
                 <div class="modal-footer">

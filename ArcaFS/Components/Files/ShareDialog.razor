@@ -26,17 +26,19 @@
                             </p>
 
                             <div class="mb-3">
-                                <label class="form-label" for="shareTitle">Title (optional)</label>
-                                <input id="shareTitle" class="form-control" @bind="model.Title" />
+                                <Field Label="Title (optional)" LabelClass="form-label" For="shareTitle">
+<input id="shareTitle" class="form-control" @bind="model.Title" />
+</Field>
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label" for="shareMode">Recipients may</label>
-                                <select id="shareMode" class="form-select" @bind="model.Mode">
+                                <Field Label="Recipients may" LabelClass="form-label" For="shareMode">
+<select id="shareMode" class="form-select" @bind="model.Mode">
                                     <option value="@ShareMode.ReadOnly">View and download</option>
                                     <option value="@ShareMode.Upload">View, download and upload</option>
                                     <option value="@ShareMode.ReadWrite">Manage files</option>
                                 </select>
+</Field>
                                 <div class="form-text">
                                     @* The share can never exceed what its creator can do at the
                                        path, so this is a ceiling rather than a grant. *@
@@ -45,27 +47,30 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label" for="sharePassword">Password (optional)</label>
-                                <input id="sharePassword" type="password" class="form-control"
+                                <Field Label="Password (optional)" LabelClass="form-label" For="sharePassword">
+<input id="sharePassword" type="password" class="form-control"
                                        autocomplete="new-password" @bind="model.Password" />
+</Field>
                             </div>
 
                             <div class="row g-2">
                                 <div class="col-6">
-                                    <label class="form-label" for="shareExpiry">Expires</label>
-                                    <select id="shareExpiry" class="form-select" @bind="model.ExpiryChoice">
+                                    <Field Label="Expires" LabelClass="form-label" For="shareExpiry">
+<select id="shareExpiry" class="form-select" @bind="model.ExpiryChoice">
                                         <option value="never">Never</option>
                                         <option value="1h">In 1 hour</option>
                                         <option value="1d">In 1 day</option>
                                         <option value="7d">In 7 days</option>
                                         <option value="30d">In 30 days</option>
                                     </select>
+</Field>
                                 </div>
                                 <div class="col-6">
-                                    <label class="form-label" for="shareMaxDownloads">Download limit</label>
-                                    <input id="shareMaxDownloads" type="number" min="1"
+                                    <Field Label="Download limit" LabelClass="form-label" For="shareMaxDownloads">
+<input id="shareMaxDownloads" type="number" min="1"
                                            class="form-control" placeholder="Unlimited"
                                            @bind="model.MaxDownloads" />
+</Field>
                                 </div>
                             </div>
 
@@ -105,8 +110,8 @@
                             <i class="bi bi-check-circle me-2"></i>The link is ready.
                         </div>
 
-                        <label class="form-label" for="shareUrl">Link</label>
-                        <div class="input-group">
+                        <Field Label="Link" LabelClass="form-label" For="shareUrl">
+<div class="input-group">
                             <input id="shareUrl" class="form-control font-monospace" readonly
                                    value="@ShareUrl" />
                             <button type="button" class="btn btn-outline-secondary"
@@ -114,6 +119,7 @@
                                 <i class="bi bi-clipboard"></i>
                             </button>
                         </div>
+</Field>
 
                         @if (created.ExpiresAt is DateTime expires)
                         {

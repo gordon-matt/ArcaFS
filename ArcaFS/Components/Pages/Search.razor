@@ -13,20 +13,22 @@
 <EditForm Model="this" OnValidSubmit="RunSearchAsync" class="mb-3">
     <div class="row g-2 align-items-end">
         <div class="col-12 col-md">
-            <label class="form-label" for="searchQuery">Query</label>
-            <input id="searchQuery" class="form-control" autofocus
+            <Field Label="Query" LabelClass="form-label" For="searchQuery">
+<input id="searchQuery" class="form-control" autofocus
                    placeholder="report type:document largerThan=1M"
                    @bind="Query" @bind:event="oninput" />
+</Field>
         </div>
         <div class="col-12 col-md-auto">
-            <label class="form-label" for="searchSource">Source</label>
-            <select id="searchSource" class="form-select" @bind="sourceId">
+            <Field Label="Source" LabelClass="form-label" For="searchSource">
+<select id="searchSource" class="form-select" @bind="sourceId">
                 <option value="0">All sources</option>
                 @foreach (var source in sources)
                 {
                     <option value="@source.Id">@source.Name</option>
                 }
             </select>
+</Field>
         </div>
         <div class="col-12 col-md-auto">
             <button type="submit" class="btn btn-primary" disabled="@isSearching">
@@ -77,8 +79,7 @@
             @results.TotalCount @(results.TotalCount == 1 ? "result" : "results")
         </p>
 
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
+        <Table Framed="false" Class="table table-sm table-hover align-middle">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -111,8 +112,7 @@
                         </tr>
                     }
                 </tbody>
-            </table>
-        </div>
+            </Table>
 
         @if (results.TotalCount > results.Items.Count)
         {

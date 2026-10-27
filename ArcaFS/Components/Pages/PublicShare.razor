@@ -40,9 +40,10 @@
 
             <EditForm Model="this" OnValidSubmit="UnlockAsync">
                 <div class="mb-3">
-                    <label class="form-label" for="sharePassword">Password</label>
-                    <input id="sharePassword" type="password" class="form-control" autofocus
+                    <Field Label="Password" LabelClass="form-label" For="sharePassword">
+<input id="sharePassword" type="password" class="form-control" autofocus
                            autocomplete="current-password" @bind="password" />
+</Field>
                     @if (passwordError)
                     {
                         <div class="text-danger small mt-1">That password isn't right.</div>
@@ -92,24 +93,9 @@
 
             @if (Segments.Length > 0)
             {
-                <nav class="arca-breadcrumb ms-2">
-                    <a href="@ShareUrl(null)">Top</a>
-                    <span class="arca-breadcrumb-sep">/</span>
-                    @for (int i = 0; i < Segments.Length; i++)
-                    {
-                        string partial = string.Join('/', Segments[..(i + 1)]);
-
-                        if (i == Segments.Length - 1)
-                        {
-                            <span class="arca-breadcrumb-current">@Segments[i]</span>
-                        }
-                        else
-                        {
-                            <a href="@ShareUrl(partial)">@Segments[i]</a>
-                            <span class="arca-breadcrumb-sep">/</span>
-                        }
-                    }
-                </nav>
+                <Heroicsoft.NetForge.Components.Navigation.Breadcrumbs TItem="BreadcrumbDto" Items="ShareCrumbs" Class="arca-breadcrumb ms-2"
+                             Text="item => item.Name" Href="item => ShareUrl(item.Path)"
+                             SeparatorClass="arca-breadcrumb-sep" CurrentClass="arca-breadcrumb-current" />
             }
 
             <div class="ms-auto d-flex gap-2">
@@ -143,7 +129,7 @@
         else
         {
             <div class="table-responsive" @ref="listingElement">
-                <table class="table table-sm table-hover align-middle">
+                <Table Class="table table-sm table-hover align-middle">
                     <thead>
                         <tr>
                             <th style="width: 2.5rem;"></th>
@@ -206,7 +192,7 @@
                             </tr>
                         }
                     </tbody>
-                </table>
+                </Table>
             </div>
         }
     }
@@ -243,6 +229,20 @@
     private DotNetObjectReference<PublicShare>? dotNetRef;
 
     private string[] Segments => VirtualPath.GetSegments(VirtualPath.Normalize(Path));
+
+    private IReadOnlyList<BreadcrumbDto> ShareCrumbs
+    {
+        get
+        {
+            var crumbs = new List<BreadcrumbDto> { new("Top", "") };
+            for (var i = 0; i < Segments.Length; i++)
+            {
+                crumbs.Add(new BreadcrumbDto(Segments[i], string.Join('/', Segments[..(i + 1)])));
+            }
+
+            return crumbs;
+        }
+    }
 
     private bool CanUpload => session?.Mode is ShareMode.Upload or ShareMode.ReadWrite;
 

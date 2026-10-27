@@ -13,54 +13,61 @@
     <div class="card-body">
         <div class="row g-2 align-items-end">
             <div class="col-md-3">
-                <label class="form-label" for="act-kind">Action</label>
-                <select id="act-kind" class="form-select" @bind="kind">
+                <Field Label="Action" LabelClass="form-label" For="act-kind">
+<select id="act-kind" class="form-select" @bind="kind">
                     <option value="">All</option>
                     @foreach (ActivityKind value in Enum.GetValues<ActivityKind>())
                     {
                         <option value="@value">@value.GetDisplayName()</option>
                     }
                 </select>
+</Field>
             </div>
             <div class="col-md-3">
-                <label class="form-label" for="act-user">User</label>
-                <select id="act-user" class="form-select" @bind="userId">
+                <Field Label="User" LabelClass="form-label" For="act-user">
+<select id="act-user" class="form-select" @bind="userId">
                     <option value="">All</option>
                     @foreach (var user in users)
                     {
                         <option value="@user.Id">@user.Label</option>
                     }
                 </select>
+</Field>
             </div>
             <div class="col-md-3">
-                <label class="form-label" for="act-source">Source</label>
-                <select id="act-source" class="form-select" @bind="sourceId">
+                <Field Label="Source" LabelClass="form-label" For="act-source">
+<select id="act-source" class="form-select" @bind="sourceId">
                     <option value="0">All</option>
                     @foreach (var source in sources)
                     {
                         <option value="@source.Id">@source.Name</option>
                     }
                 </select>
+</Field>
             </div>
             <div class="col-md-3">
-                <label class="form-label" for="act-path">Path contains</label>
-                <input id="act-path" class="form-control" @bind="pathContains" />
+                <Field Label="Path contains" LabelClass="form-label" For="act-path">
+<input id="act-path" class="form-control" @bind="pathContains" />
+</Field>
             </div>
             <div class="col-md-3">
-                <label class="form-label" for="act-from">From</label>
-                <input id="act-from" class="form-control" type="date" @bind="fromDate" />
+                <Field Label="From" LabelClass="form-label" For="act-from">
+<input id="act-from" class="form-control" type="date" @bind="fromDate" />
+</Field>
             </div>
             <div class="col-md-3">
-                <label class="form-label" for="act-to">To</label>
-                <input id="act-to" class="form-control" type="date" @bind="toDate" />
+                <Field Label="To" LabelClass="form-label" For="act-to">
+<input id="act-to" class="form-control" type="date" @bind="toDate" />
+</Field>
             </div>
             <div class="col-md-3">
-                <label class="form-label" for="act-ok">Result</label>
-                <select id="act-ok" class="form-select" @bind="succeededFilter">
+                <Field Label="Result" LabelClass="form-label" For="act-ok">
+<select id="act-ok" class="form-select" @bind="succeededFilter">
                     <option value="">All</option>
                     <option value="true">Succeeded</option>
                     <option value="false">Failed</option>
                 </select>
+</Field>
             </div>
             <div class="col-md-3">
                 <button type="button" class="btn btn-primary w-100" @onclick="SearchAsync">Filter</button>
@@ -82,8 +89,7 @@ else if (activityPage.Items.Count == 0)
 else
 {
     <div class="card">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+        <Table Framed="false" Class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
                         <th>When</th>
@@ -135,8 +141,7 @@ else
                         </tr>
                     }
                 </tbody>
-            </table>
-        </div>
+            </Table>
         @if (activityPage.PageCount > 1)
         {
             <div class="card-footer d-flex justify-content-between align-items-center">

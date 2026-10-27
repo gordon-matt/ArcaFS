@@ -8,11 +8,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Hangfire.Core" Version="1.8.23" />
-		<PackageReference Include="Hangfire.NetCore" Version="1.8.23" />
+		<PackageReference Include="Hangfire.Core" Version="1.8.25" />
+		<PackageReference Include="Hangfire.NetCore" Version="1.8.25" />
 		<PackageReference Include="Hangfire.Storage.SQLite" Version="0.4.3" />
-		<PackageReference Include="LogVue.Data.Sqlite" Version="1.0.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+		<PackageReference Include="LogVue.Data.Sqlite" Version="1.1.1" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
 		<!--
 		  Hangfire.Storage.SQLite depends on SQLitePCLRaw.bundle_green 2.1.11, which drags in
 		  SQLitePCLRaw.lib.e_sqlite3 2.1.11 and advisory GHSA-2m69-gcr7-jv3q. bundle_green has no
@@ -21,7 +21,7 @@
 		-->
 		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
 		<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
