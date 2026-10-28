@@ -208,10 +208,6 @@
     font-size: 1.15rem;
 }
 
-.arca-file-face-lg {
-    height: 10rem;
-}
-
 .arca-checkered {
     background-color: #fff;
     background-image:
@@ -230,16 +226,12 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Grid and gallery modes */
+/* Tile mode */
 
 .arca-grid {
     display: grid;
     gap: 0.75rem;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-}
-
-.arca-grid.gallery {
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
 }
 
 .arca-grid-item {
@@ -306,10 +298,26 @@
 }
 
 .dropdown-menu.arca-context-menu {
+    /* .dropdown-menu sets right: 0 so toolbar menus hug their button. On a fixed menu that
+       pins the right edge to the viewport, so the menu stretches from the click to the
+       screen edge. right: auto lets it shrink to its labels. */
     position: fixed;
+    right: auto;
+    width: max-content;
+    min-width: 12rem;
+    max-width: calc(100vw - 1rem);
     z-index: 80;
     display: block;
-    min-width: 12rem;
+    white-space: nowrap;
+    transform: translate(
+        min(0px, calc(100vw - 100% - var(--menu-x, 0px) - 8px)),
+        min(0px, calc(100vh - 100% - var(--menu-y, 0px) - 8px))
+    );
+}
+
+.arca-context-menu .dropdown-item .float-end {
+    margin-left: auto;
+    padding-left: 1.5rem;
 }
 
 /* ------------------------------------------------------------ preview */
@@ -413,6 +421,215 @@
     font-variant-numeric: tabular-nums;
     width: 4rem;
 }
+
+/* --------------------------------------------------------- home */
+
+.arca-source-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.arca-source-tile {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+    padding: 0.95rem 1rem;
+    background: var(--nf-surface);
+    border: 1px solid var(--nf-border);
+    border-radius: var(--nf-radius-large);
+    color: var(--nf-text);
+    text-decoration: none;
+}
+
+.arca-source-tile:hover {
+    text-decoration: none;
+    border-color: color-mix(in srgb, var(--nf-accent) 55%, var(--nf-border));
+    background: color-mix(in srgb, var(--nf-accent) 7%, var(--nf-surface));
+}
+
+.arca-source-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--nf-radius);
+    background: var(--nf-warning-soft);
+    color: var(--nf-warning);
+    font-size: 1.3rem;
+}
+
+.arca-source-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.arca-source-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    font-size: 0.95rem;
+    font-weight: 650;
+}
+
+.arca-source-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.arca-source-title .bi-lock-fill {
+    flex: 0 0 auto;
+    color: var(--nf-muted);
+    font-size: 0.75rem;
+}
+
+.arca-source-desc,
+.arca-source-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--nf-muted);
+    font-size: 12.5px;
+}
+
+.arca-source-go {
+    flex: 0 0 auto;
+    color: var(--nf-muted);
+    font-size: 0.85rem;
+}
+
+.arca-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.35rem;
+}
+
+.arca-stat {
+    padding: 0.8rem 0.95rem;
+    background: var(--nf-surface);
+    border: 1px solid var(--nf-border);
+    border-radius: var(--nf-radius);
+}
+
+.arca-stat-label {
+    color: var(--nf-muted);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.arca-stat-value {
+    margin-top: 0.2rem;
+    font-size: 1.35rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.arca-stat-value-sm {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.35;
+}
+
+.arca-home-heading {
+    margin: 0 0 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 650;
+}
+
+/* ---------------------------------------------------- folder browser */
+
+.arca-folder-browser {
+    margin-top: 0.5rem;
+    border: 1px solid var(--nf-border);
+    border-radius: var(--nf-radius);
+    background: var(--nf-surface);
+    overflow: hidden;
+}
+
+.arca-folder-browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.5rem;
+    background: var(--nf-surface-2);
+    border-bottom: 1px solid var(--nf-border);
+}
+
+.arca-folder-browser-path {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--nf-muted);
+    overflow-wrap: anywhere;
+}
+
+.arca-folder-browser-list {
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+.arca-folder-empty {
+    padding: 0.85rem 0.9rem;
+    color: var(--nf-muted);
+    font-size: 13px;
+}
+
+.arca-folder-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.1rem 0.4rem 0.1rem 0.15rem;
+    border-bottom: 1px solid var(--nf-border-soft);
+}
+
+.arca-folder-row:last-child { border-bottom: 0; }
+
+.arca-folder-row:hover { background: var(--nf-hover); }
+
+.arca-folder-open {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 32px;
+    padding: 0 0.4rem;
+    border: 0;
+    border-radius: var(--nf-radius-small);
+    background: transparent;
+    color: var(--nf-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.arca-folder-open span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.arca-folder-open .bi-folder-fill {
+    flex: 0 0 auto;
+    color: var(--nf-warning);
+}
+
+.arca-folder-open:hover { color: var(--nf-text); }
 
 /* ---------------------------------------------------------- utilities */
 
@@ -579,7 +796,14 @@
 .btn:disabled { opacity: 0.55; cursor: default; }
 .btn-sm { height: 28px; padding: 0 0.55rem; font-size: 13px; }
 .btn-primary, .btn-dark { background: var(--nf-accent); border-color: var(--nf-accent); color: var(--nf-accent-text); }
-.btn-primary:hover, .btn-dark:hover { filter: brightness(1.07); }
+/* The generic hover paints every button with --nf-hover. Accent text is white in the light
+   scheme and near-black in the dark scheme, so that wash hides the label. Keep the accent fill. */
+.btn-primary:hover, .btn-dark:hover {
+    background: var(--nf-accent);
+    border-color: var(--nf-accent);
+    color: var(--nf-accent-text);
+    filter: brightness(1.08);
+}
 .btn-secondary { background: var(--nf-accent-soft); border-color: transparent; color: var(--nf-accent); }
 .btn-outline-secondary, .btn-outline-primary { background: transparent; }
 .btn-outline-danger, .btn-outline-warning { background: transparent; color: var(--nf-danger); }

@@ -29,6 +29,7 @@ services:
       Seed__Admin__Email: "admin@arcafs.local"
       Seed__Admin__Password: "${ADMIN_PASSWORD:-Admin123!}"
       Thumbnails__CacheDirectory: /app/data/thumbnails
+      Hosting__DataRoot: /app/data
 
       # ── Keycloak (optional) ──────────────────────────────────────────────────
       # Set Authentication__Provider to "Keycloak" and fill in Authority + ClientSecret

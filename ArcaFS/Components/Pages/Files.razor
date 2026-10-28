@@ -357,7 +357,6 @@
         (ListingViewMode.Normal, "bi-grid", "Tiles"),
         (ListingViewMode.List, "bi-list-ul", "List"),
         (ListingViewMode.Compact, "bi-text-left", "Compact"),
-        (ListingViewMode.Gallery, "bi-images", "Gallery"),
     ];
 
     protected override async Task OnInitializedAsync()
@@ -393,9 +392,17 @@
 
         string storedMode = await JS.InvokeAsync<string>("arcafs.getStoredViewMode");
 
-        if (Enum.TryParse(storedMode, ignoreCase: true, out ListingViewMode parsed))
+        if (Enum.TryParse(storedMode, ignoreCase: true, out ListingViewMode parsed)
+            && parsed is not ListingViewMode.Gallery)
         {
             viewMode = parsed;
+            StateHasChanged();
+        }
+        else if (parsed == ListingViewMode.Gallery)
+        {
+            // Gallery is no longer offered. Drop the stored choice so the tiles button matches.
+            viewMode = ListingViewMode.Normal;
+            await JS.InvokeVoidAsync("arcafs.setStoredViewMode", viewMode.ToString());
             StateHasChanged();
         }
 

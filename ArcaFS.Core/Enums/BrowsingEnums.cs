@@ -15,7 +15,10 @@ public enum ListingViewMode
     /// <summary>Dense single-line rows, no thumbnails.</summary>
     Compact = 3,
 
-    /// <summary>Edge-to-edge image grid for photo folders.</summary>
+    /// <summary>
+    /// Previously an edge-to-edge image grid. Kept so a stored preference still parses;
+    /// the file manager no longer offers this layout.
+    /// </summary>
     Gallery = 4,
 }
 

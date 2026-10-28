@@ -6,8 +6,10 @@ using ArcaFS.Services.Shares;
 using ArcaFS.Services.Sources;
 using ArcaFS.Services.Thumbnails;
 using ArcaFS.Services.UserData;
+using Heroicsoft.NetForge.Drawing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace ArcaFS.Services;
 
@@ -22,9 +24,11 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration,
         string databaseProviderName)
     {
+        services.AddNetForgeDrawing();
         services.AddMemoryCache();
 
         services.Configure<ThumbnailOptions>(configuration.GetSection(ThumbnailOptions.SectionName));
+        services.Configure<HostBrowseOptions>(configuration.GetSection(HostBrowseOptions.SectionName));
 
         // Default the thumbnail cache under the app's data directory when it isn't configured.
         // Doing it here rather than in the options class keeps path resolution out of a POCO.
@@ -67,6 +71,7 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IRepository<Source>>(),
             provider.GetRequiredService<IRepository<AccessRule>>(),
             provider.GetRequiredService<IUserContextService>(),
+            provider.GetRequiredService<IOptions<HostBrowseOptions>>(),
             databaseProviderName));
 
         return services;

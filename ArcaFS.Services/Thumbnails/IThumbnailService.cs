@@ -1,7 +1,7 @@
 namespace ArcaFS.Services.Thumbnails;
 
 /// <summary>
-/// Generates and caches image thumbnails for the grid and gallery views.
+/// Generates and caches image thumbnails for the file listing.
 /// </summary>
 public interface IThumbnailService
 {

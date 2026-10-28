@@ -23,7 +23,8 @@ public interface ISetupService
 
     /// <summary>
     /// Server-side directory browser for choosing a source path. Restricted to the setup
-    /// window and to administrators afterwards, since it exposes the host's layout.
+    /// window and to administrators afterwards. When <c>Hosting:DataRoot</c> exists, browsing
+    /// cannot leave that directory.
     /// </summary>
     Task<Result<HostDirectoryListingDto>> BrowseHostDirectoriesAsync(
         string? path,

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace ArcaFS.Services.Setup;
 
@@ -11,6 +12,7 @@ public sealed class SetupService(
     IRepository<Source> sourceRepository,
     IRepository<AccessRule> ruleRepository,
     IUserContextService userContext,
+    IOptions<HostBrowseOptions> browseOptions,
     string databaseProviderName) : ISetupService
 {
     public async Task<SetupStateDto> GetStateAsync(CancellationToken cancellationToken = default)
@@ -120,10 +122,17 @@ public sealed class SetupService(
                 nameof(request.Path), "That folder does not exist on the server."));
         }
 
+        string sourcePath = Path.GetFullPath(request.Path.Trim());
+
+        if (OutsideDataRoot(sourcePath) is string outsideMessage)
+        {
+            return Result<SourceDto>.Invalid(new ValidationError(nameof(request.Path), outsideMessage));
+        }
+
         var source = new Source
         {
             Name = request.Name.Trim(),
-            Path = Path.GetFullPath(request.Path.Trim()),
+            Path = sourcePath,
             IsReadOnly = request.IsReadOnly,
         };
 
@@ -219,18 +228,24 @@ public sealed class SetupService(
             return Result<HostDirectoryListingDto>.Forbidden();
         }
 
-        var roots = GetRoots();
+        bool jailed = HostBrowsePaths.TryGetEnforcedRoot(browseOptions.Value.DataRoot, out string dataRoot);
+        IReadOnlyList<HostDirectoryDto> roots = jailed
+            ? [DescribeDirectory(dataRoot)]
+            : GetRoots();
 
-        if (string.IsNullOrWhiteSpace(path))
+        // With no jail and no path, offer the machine's drives (or the usual Linux roots).
+        if (!jailed && string.IsNullOrWhiteSpace(path))
         {
             return Result<HostDirectoryListingDto>.Success(
                 new HostDirectoryListingDto(null, null, [], roots));
         }
 
+        string requested = string.IsNullOrWhiteSpace(path) ? dataRoot : path;
         string full;
+
         try
         {
-            full = Path.GetFullPath(path);
+            full = Path.GetFullPath(requested);
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
@@ -243,20 +258,18 @@ public sealed class SetupService(
             return Result<HostDirectoryListingDto>.NotFound($"'{full}' does not exist.");
         }
 
-        var directories = new List<HostDirectoryDto>();
+        if (jailed && !HostBrowsePaths.IsAllowed(full, dataRoot))
+        {
+            return Result<HostDirectoryListingDto>.Invalid(new ValidationError(
+                nameof(path),
+                $"Choose a folder inside {dataRoot}."));
+        }
+
+        List<HostDirectoryDto> directories;
 
         try
         {
-            foreach (var directory in new DirectoryInfo(full)
-                .EnumerateDirectories("*", new EnumerationOptions { IgnoreInaccessible = true }))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                directories.Add(new HostDirectoryDto(
-                    directory.Name,
-                    directory.FullName,
-                    HasAccessibleChildren(directory)));
-            }
+            directories = ListChildDirectories(full, jailed ? dataRoot : null, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -264,11 +277,30 @@ public sealed class SetupService(
                 "The server does not have permission to read that folder.");
         }
 
+        string? parent = jailed
+            ? HostBrowsePaths.ParentWithinRoot(full, dataRoot)
+            : Path.GetDirectoryName(full);
+
         return Result<HostDirectoryListingDto>.Success(new HostDirectoryListingDto(
             full,
-            Path.GetDirectoryName(full),
-            directories.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList(),
+            parent,
+            directories,
             roots));
+    }
+
+    /// <summary>
+    /// Null when the path is inside the data directory, or when no data directory is enforced.
+    /// </summary>
+    private string? OutsideDataRoot(string fullPath)
+    {
+        if (!HostBrowsePaths.TryGetEnforcedRoot(browseOptions.Value.DataRoot, out string dataRoot))
+        {
+            return null;
+        }
+
+        return HostBrowsePaths.IsAllowed(fullPath, dataRoot)
+            ? null
+            : $"Choose a folder inside {dataRoot}.";
     }
 
     /// <summary>
@@ -331,9 +363,43 @@ public sealed class SetupService(
         }
     }
 
+    private static HostDirectoryDto DescribeDirectory(string path)
+    {
+        var info = new DirectoryInfo(path);
+        string name = info.Name.Length > 0 ? info.Name : path;
+
+        return new HostDirectoryDto(name, path, HasAccessibleChildren(info));
+    }
+
+    private static List<HostDirectoryDto> ListChildDirectories(
+        string full,
+        string? jailRoot,
+        CancellationToken cancellationToken)
+    {
+        var directories = new List<HostDirectoryDto>();
+
+        foreach (var directory in new DirectoryInfo(full)
+            .EnumerateDirectories("*", new EnumerationOptions { IgnoreInaccessible = true }))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (jailRoot is not null && !HostBrowsePaths.IsAllowed(directory.FullName, jailRoot))
+            {
+                continue;
+            }
+
+            directories.Add(new HostDirectoryDto(
+                directory.Name,
+                directory.FullName,
+                HasAccessibleChildren(directory)));
+        }
+
+        return directories.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     /// <summary>
-    /// Starting points for the folder picker. On Linux these are the paths that actually matter
-    /// in a container; on Windows they are the drives.
+    /// Starting points when no data directory is enforced. On Linux these are the paths that
+    /// actually matter on a host; on Windows they are the drives.
     /// </summary>
     private static IReadOnlyList<HostDirectoryDto> GetRoots()
     {

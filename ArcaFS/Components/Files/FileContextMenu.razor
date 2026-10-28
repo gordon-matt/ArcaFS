@@ -10,7 +10,7 @@
          @oncontextmenu:preventDefault></div>
 
     <ul class="dropdown-menu show arca-context-menu shadow"
-        style="@($"left: {X}px; top: {Y}px; z-index: 2000;")"
+        style="@MenuStyle"
         @onmousedown:stopPropagation="true"
         @onclick:stopPropagation="true">
         @if (SelectionCount > 1)
@@ -199,6 +199,9 @@
 
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    private string MenuStyle => FormattableString.Invariant(
+        $"--menu-x: {X}px; --menu-y: {Y}px; left: {X}px; top: {Y}px; z-index: 2000;");
 
     private bool IsArchive => Item?.Kind == FileKind.Archive;
 

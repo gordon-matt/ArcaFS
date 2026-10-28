@@ -59,6 +59,8 @@ builder.Services.AddArcaFsHangfire(builder.Configuration, databaseProvider);
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+builder.Services.ConfigureNetForgeToastSounds(sounds => sounds.EnableSounds = true);
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();

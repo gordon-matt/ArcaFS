@@ -1,3 +1,6 @@
+using ArcaFS.Services.Setup;
+using Microsoft.Extensions.Options;
+
 namespace ArcaFS.Services.Sources;
 
 public sealed class SourceService(
@@ -6,7 +9,8 @@ public sealed class SourceService(
     IPermissionService permissionService,
     IRepository<Source> repository,
     IRepository<AccessRule> ruleRepository,
-    IRepository<IndexedItem> indexRepository) : ISourceService
+    IRepository<IndexedItem> indexRepository,
+    IOptions<HostBrowseOptions> browseOptions) : ISourceService
 {
     public async Task<Result<IReadOnlyList<SourceDto>>> ListAsync(
         CancellationToken cancellationToken = default)
@@ -222,6 +226,12 @@ public sealed class SourceService(
                 path, false, false, false, false, null, "That is not a valid path."));
         }
 
+        if (OutsideDataRoot(normalized) is string outsideMessage)
+        {
+            return Result<SourcePathProbeDto>.Success(new SourcePathProbeDto(
+                normalized, false, false, false, false, null, outsideMessage));
+        }
+
         if (File.Exists(normalized))
         {
             return Result<SourcePathProbeDto>.Success(new SourcePathProbeDto(
@@ -310,6 +320,22 @@ public sealed class SourceService(
         if (string.IsNullOrWhiteSpace(request.Path))
         {
             return Result.Invalid(new ValidationError(nameof(request.Path), "Enter a path."));
+        }
+
+        string normalizedPath;
+
+        try
+        {
+            normalizedPath = NormalizeHostPath(request.Path);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return Result.Invalid(new ValidationError(nameof(request.Path), "That is not a valid path."));
+        }
+
+        if (OutsideDataRoot(normalizedPath) is string outsideMessage)
+        {
+            return Result.Invalid(new ValidationError(nameof(request.Path), outsideMessage));
         }
 
         // The name is a URL segment, so a slash in it would silently break every link into
@@ -411,6 +437,22 @@ public sealed class SourceService(
         {
             await indexRepository.DeleteAsync(list);
         }
+    }
+
+    /// <summary>
+    /// Null when the path may be used as a source root. When a data directory is enforced,
+    /// a path outside it (including a symlink that points outside) is refused.
+    /// </summary>
+    private string? OutsideDataRoot(string fullPath)
+    {
+        if (!HostBrowsePaths.TryGetEnforcedRoot(browseOptions.Value.DataRoot, out string dataRoot))
+        {
+            return null;
+        }
+
+        return HostBrowsePaths.IsAllowed(fullPath, dataRoot)
+            ? null
+            : $"Choose a folder inside {dataRoot}.";
     }
 
     /// <summary>

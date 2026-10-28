@@ -28,81 +28,61 @@ else if (stats.Sources.Count == 0)
 }
 else
 {
-    <div class="row g-3 mb-4">
+    <div class="arca-source-grid">
         @foreach (var source in stats.Sources)
         {
-            <div class="col-12 col-md-6 col-xl-4">
-                <a class="card h-100 text-decoration-none text-body"
-                   href="@($"/files/{source.Id}")">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start gap-3">
-                            <i class="bi bi-folder-fill fs-2 text-warning"></i>
-                            <div class="min-w-0 flex-grow-1">
-                                <h2 class="h6 mb-1 bf-truncate">@source.Name</h2>
-                                @if (!string.IsNullOrWhiteSpace(source.Description))
-                                {
-                                    <p class="small text-body-secondary mb-2 bf-truncate">
-                                        @source.Description
-                                    </p>
-                                }
-                                <div class="small text-body-secondary">
-                                    @if (source.IndexedItemCount is long items)
-                                    {
-                                        <span>@items.ToString("N0") items</span>
-                                        <span class="mx-1">·</span>
-                                        <span>@FormatBytes(source.IndexedSizeBytes ?? 0)</span>
-                                    }
-                                    else
-                                    {
-                                        <span>Not indexed</span>
-                                    }
-                                </div>
-                            </div>
-                            @if (source.IsReadOnly)
-                            {
-                                <i class="bi bi-lock-fill text-body-tertiary" title="Read-only"></i>
-                            }
-                        </div>
-                    </div>
-                </a>
-            </div>
+            <a class="arca-source-tile" href="@($"/files/{source.Id}")">
+                <span class="arca-source-icon" aria-hidden="true">
+                    <i class="bi bi-folder-fill"></i>
+                </span>
+                <span class="arca-source-copy">
+                    <span class="arca-source-title">
+                        <span class="arca-source-name">@source.Name</span>
+                        @if (source.IsReadOnly)
+                        {
+                            <i class="bi bi-lock-fill" title="Read-only"></i>
+                        }
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(source.Description))
+                    {
+                        <span class="arca-source-desc">@source.Description</span>
+                    }
+                    <span class="arca-source-meta">
+                        @if (source.IndexedItemCount is long items)
+                        {
+                            <span>@items.ToString("N0") items</span>
+                            <span> · </span>
+                            <span>@FormatBytes(source.IndexedSizeBytes ?? 0)</span>
+                        }
+                        else
+                        {
+                            <span>Not indexed</span>
+                        }
+                    </span>
+                </span>
+                <i class="bi bi-chevron-right arca-source-go" aria-hidden="true"></i>
+            </a>
         }
     </div>
 
     <AuthorizeView Roles="@WellKnownRoles.Administrator">
-        <div class="row g-3 mb-4">
-            <div class="col-6 col-md-3">
-                <div class="card h-100">
-                    <div class="card-body py-3">
-                        <div class="small text-body-secondary">Users</div>
-                        <div class="fs-4">@stats.UserCount</div>
-                    </div>
-                </div>
+        <div class="arca-stat-grid">
+            <div class="arca-stat">
+                <div class="arca-stat-label">Users</div>
+                <div class="arca-stat-value">@stats.UserCount</div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="card h-100">
-                    <div class="card-body py-3">
-                        <div class="small text-body-secondary">Access rules</div>
-                        <div class="fs-4">@stats.AccessRuleCount</div>
-                    </div>
-                </div>
+            <div class="arca-stat">
+                <div class="arca-stat-label">Access rules</div>
+                <div class="arca-stat-value">@stats.AccessRuleCount</div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="card h-100">
-                    <div class="card-body py-3">
-                        <div class="small text-body-secondary">Active shares</div>
-                        <div class="fs-4">@stats.ActiveShareCount</div>
-                    </div>
-                </div>
+            <div class="arca-stat">
+                <div class="arca-stat-label">Active shares</div>
+                <div class="arca-stat-value">@stats.ActiveShareCount</div>
             </div>
-            <div class="col-6 col-md-3">
-                <div class="card h-100">
-                    <div class="card-body py-3">
-                        <div class="small text-body-secondary">Last indexed</div>
-                        <div class="fs-6 pt-1">
-                            @(stats.LastIndexedAt?.ToLocalTime().ToString("g") ?? "Never")
-                        </div>
-                    </div>
+            <div class="arca-stat">
+                <div class="arca-stat-label">Last indexed</div>
+                <div class="arca-stat-value arca-stat-value-sm">
+                    @(stats.LastIndexedAt?.ToLocalTime().ToString("g") ?? "Never")
                 </div>
             </div>
         </div>
@@ -110,7 +90,7 @@ else
 
     @if (stats.RecentActivity.Count > 0)
     {
-        <h2 class="h6">Recent activity</h2>
+        <h2 class="arca-home-heading">Recent activity</h2>
         <Table Framed="false" Class="table table-sm align-middle">
                 <tbody>
                     @foreach (var activity in stats.RecentActivity)

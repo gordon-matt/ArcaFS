@@ -1,17 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
+using Heroicsoft.NetForge.Drawing;
 using Microsoft.Extensions.Options;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
 
 namespace ArcaFS.Services.Thumbnails;
 
 public sealed class ThumbnailService(
     ILogger<ThumbnailService> logger,
     IPermissionService permissionService,
-    IOptions<ThumbnailOptions> options) : IThumbnailService
+    IOptions<ThumbnailOptions> options,
+    IImageProcessor images) : IThumbnailService
 {
     /// <summary>
     /// Sizes the UI is allowed to ask for. Unbounded sizes would let one request fill the cache
@@ -169,46 +167,20 @@ public sealed class ThumbnailService(
         int size,
         CancellationToken cancellationToken)
     {
-        var decoderOptions = new DecoderOptions
-        {
-            // Ask the decoder for something close to the target size. JPEG can honour this
-            // during decode, which avoids materialising a 60-megapixel bitmap to produce a
-            // 256-pixel square.
-            TargetSize = new Size(size, size),
-        };
-
-        using var image = await Image.LoadAsync(decoderOptions, physicalPath, cancellationToken);
-
-        if ((long)image.Width * image.Height > MaxPixels)
-        {
-            throw new InvalidOperationException(
-                $"{physicalPath} is {image.Width}x{image.Height}, which exceeds the decode limit.");
-        }
-
-        image.Mutate(context => context.Resize(new ResizeOptions
-        {
-            Size = new Size(size, size),
-
-            // Max preserves aspect ratio and never upscales, so a small icon stays crisp
-            // instead of being blown up and blurred.
-            Mode = ResizeMode.Max,
-            Sampler = KnownResamplers.Lanczos3,
-        }));
-
         // Strip metadata: EXIF can carry GPS coordinates, and a thumbnail served to a share
         // visitor should not leak where a photo was taken.
-        image.Metadata.ExifProfile = null;
-        image.Metadata.IptcProfile = null;
-        image.Metadata.XmpProfile = null;
+        var processed = await images.ResizeAsync(physicalPath, new ImageTransform
+        {
+            Width = size,
+            Height = size,
+            Mode = ImageScaleMode.Max,
+            Format = RasterFormat.Webp,
+            Quality = settings.Quality,
+            StripMetadata = true,
+            MaxPixels = MaxPixels,
+        }, cancellationToken);
 
-        using var output = new MemoryStream();
-
-        await image.SaveAsync(
-            output,
-            new WebpEncoder { Quality = settings.Quality },
-            cancellationToken);
-
-        return output.ToArray();
+        return processed.Bytes;
     }
 
     private async Task WriteCacheAsync(string cachePath, byte[] bytes, CancellationToken cancellationToken)

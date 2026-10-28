@@ -26,60 +26,51 @@
 
 @if (listing is not null)
 {
-    <div class="card mt-2 mb-0">
-        <div class="card-body p-2">
-            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        disabled="@(listing.ParentPath is null)"
-                        @onclick="() => BrowseAsync(listing.ParentPath)">
-                    <i class="bi bi-arrow-up"></i>
-                </button>
-                <code class="small text-break flex-grow-1">
-                    @(listing.CurrentPath ?? "This server")
-                </code>
-                @if (listing.CurrentPath is not null)
-                {
-                    <button type="button" class="btn btn-sm btn-primary"
-                            @onclick="() => ChoosePathAsync(listing.CurrentPath)">
-                        Use this folder
-                    </button>
-                }
-                <button type="button" class="btn btn-sm btn-link"
-                        @onclick="Close">
-                    Close
-                </button>
-            </div>
+    var entries = listing.CurrentPath is null ? listing.Roots : listing.Directories;
 
-            <div class="list-group list-group-flush"
-                 style="max-height: 14rem; overflow-y: auto;">
-                @{
-                    var entries = listing.CurrentPath is null
-                        ? listing.Roots
-                        : listing.Directories;
-                }
-                @if (entries.Count == 0)
-                {
-                    <div class="list-group-item text-body-secondary small py-2">
-                        This folder has no subfolders. Use it as the source, or go up.
-                    </div>
-                }
-                @foreach (var directory in entries)
-                {
-                    <div class="list-group-item d-flex align-items-center gap-2 py-1">
-                        <button type="button"
-                                class="btn btn-sm btn-link text-decoration-none flex-grow-1 text-start text-truncate"
-                                @onclick="() => BrowseAsync(directory.FullPath)">
-                            <i class="bi bi-folder-fill text-warning me-1"></i>
-                            @directory.Name
-                        </button>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-primary flex-shrink-0"
-                                @onclick="() => ChoosePathAsync(directory.FullPath)">
-                            Use
-                        </button>
-                    </div>
-                }
-            </div>
+    <div class="arca-folder-browser">
+        <div class="arca-folder-browser-bar">
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Up"
+                    disabled="@(listing.ParentPath is null)"
+                    @onclick="() => BrowseAsync(listing.ParentPath)">
+                <i class="bi bi-arrow-up"></i>
+            </button>
+            <code class="arca-folder-browser-path">
+                @(listing.CurrentPath ?? "This server")
+            </code>
+            @if (listing.CurrentPath is not null)
+            {
+                <button type="button" class="btn btn-sm btn-primary"
+                        @onclick="() => ChoosePathAsync(listing.CurrentPath)">
+                    Use this folder
+                </button>
+            }
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="Close">
+                Close
+            </button>
+        </div>
+
+        <div class="arca-folder-browser-list">
+            @if (entries.Count == 0)
+            {
+                <div class="arca-folder-empty">
+                    This folder has no subfolders. Use it as the source, or go up.
+                </div>
+            }
+            @foreach (var directory in entries)
+            {
+                <div class="arca-folder-row">
+                    <button type="button" class="arca-folder-open"
+                            @onclick="() => BrowseAsync(directory.FullPath)">
+                        <i class="bi bi-folder-fill" aria-hidden="true"></i>
+                        <span>@directory.Name</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            @onclick="() => ChoosePathAsync(directory.FullPath)">
+                        Use
+                    </button>
+                </div>
+            }
         </div>
     </div>
 }

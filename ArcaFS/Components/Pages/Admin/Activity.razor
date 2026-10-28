@@ -70,7 +70,7 @@
 </Field>
             </div>
             <div class="col-md-3">
-                <button type="button" class="btn btn-primary w-100" @onclick="SearchAsync">Filter</button>
+                <button type="button" class="btn btn-primary w-100" @onclick="ApplyFiltersAsync">Filter</button>
             </div>
         </div>
     </div>
@@ -142,22 +142,15 @@ else
                     }
                 </tbody>
             </Table>
-        @if (activityPage.PageCount > 1)
-        {
-            <div class="card-footer d-flex justify-content-between align-items-center">
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        disabled="@(!activityPage.HasPreviousPage)" @onclick="() => GoToAsync(activityPage.PageNumber - 1)">
-                    Previous
-                </button>
-                <span class="small text-body-secondary">
-                    Page @activityPage.PageNumber of @activityPage.PageCount · @activityPage.TotalCount events
-                </span>
-                <button type="button" class="btn btn-sm btn-outline-secondary"
-                        disabled="@(!activityPage.HasNextPage)" @onclick="() => GoToAsync(activityPage.PageNumber + 1)">
-                    Next
-                </button>
-            </div>
-        }
+        <div class="card-footer fw-normal">
+            <Pager PageNumber="pageNumber"
+                   PageSize="pageSize"
+                   TotalCount="activityPage.TotalCount"
+                   PageSizes="PageSizes"
+                   PageNumberChanged="GoToAsync"
+                   PageSizeChanged="ChangePageSizeAsync"
+                   AriaLabel="Activity pages" />
+        </div>
     </div>
 }
 
@@ -170,7 +163,9 @@ else
     private DateTime? toDate;
     private string? succeededFilter;
     private int pageNumber = 1;
+    private int pageSize = 25;
     private PagedList<ActivityEventDto>? activityPage;
+    private static readonly int[] PageSizes = [25, 50, 100];
     private IReadOnlyList<SourceDto> sources = [];
     private IReadOnlyList<UserInfo> users = [];
 
@@ -182,9 +177,22 @@ else
         await SearchAsync();
     }
 
+    private Task ApplyFiltersAsync()
+    {
+        pageNumber = 1;
+        return SearchAsync();
+    }
+
     private Task GoToAsync(int number)
     {
         pageNumber = number;
+        return SearchAsync();
+    }
+
+    private Task ChangePageSizeAsync(int size)
+    {
+        pageSize = size;
+        pageNumber = 1;
         return SearchAsync();
     }
 
@@ -205,7 +213,7 @@ else
             ToUtc = toDate?.Date.AddDays(1).AddTicks(-1).ToUniversalTime(),
             SucceededOnly = bool.TryParse(succeededFilter, out bool ok) ? ok : null,
             PageNumber = pageNumber,
-            PageSize = 100,
+            PageSize = pageSize,
         });
     }
 }
