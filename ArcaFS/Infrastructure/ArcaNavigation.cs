@@ -97,9 +97,7 @@ public sealed class ArcaNavigation(
                 new() { Title = "Groups", Href = "/admin/groups", Icon = "signpost" },
                 new() { Title = "Shares", Href = "/admin/shares", Icon = "link" },
                 new() { Title = "Activity", Href = "/admin/activity", Icon = "info" },
-                new() { Title = "Settings", Href = "/admin/settings", Icon = "settings" },
-                new() { Title = "Jobs", Href = "/hangfire", Icon = "jobs", External = true, Tooltip = "Background jobs" },
-                new() { Title = "Logs", Href = "/logvue", Icon = "logs", External = true, Tooltip = "Log viewer" },
+                new() { Title = "Settings", Href = "/admin/settings", Icon = "settings" }
             ],
         });
 

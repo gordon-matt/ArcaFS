@@ -5,6 +5,8 @@ using ArcaFS.Data.Sqlite;
 using Hangfire;
 using Heroicsoft.NetForge.Abstractions.Data;
 using Heroicsoft.NetForge.Abstractions.Setup;
+using Heroicsoft.NetForge.Components.Navigation;
+using LogVue;
 
 namespace ArcaFS.Infrastructure;
 
@@ -43,6 +45,7 @@ public static class ServiceCollectionExtensions
             ui.DefaultColorScheme = "system";
             ui.AccentColor = "#0f766e";
             ui.AccentColorDark = "#5eead4";
+            ui.ActiveSharedMenuPlacement = NetForgeMenuPlacement.Sidebar;
         });
 
         services.Configure<ForgeShellOptions>(shell =>
@@ -52,6 +55,8 @@ public static class ServiceCollectionExtensions
             // The wordmark's dark letters disappear on a dark bar, so dark themes get the icon.
             shell.LogoDarkUrl = "img/Icon.png";
             shell.MarkUrl = "img/Icon.png";
+            shell.UseSharedMenu = true;
+            shell.SharedMenuName = "Admin";
             shell.SearchUrlFormat = "/search?q={0}";
             shell.SearchPlaceholder = "Search files";
             shell.UserMenuItems =
@@ -59,6 +64,30 @@ public static class ServiceCollectionExtensions
                 new() { Title = "Profile", Href = "/profile", Icon = "user" },
                 new() { Title = "My shares", Href = "/shares", Icon = "link" },
             ];
+        });
+
+        services.BuildMenu("Admin", menu =>
+        {
+            menu.AddItems()
+                .AsTopbar()
+                .AddCustom(item =>
+                {
+                    item.Title = "Home";
+                    item.Icon = "home";
+                    item.Url = "/";
+                    item.MatchAll = true;
+                });
+
+            menu.AddItems(group => group.Roles = WellKnownRoles.Administrator)
+                .AsTopbar()
+                .AddLogVue(options => options.Title = "Logs")
+                .AddCustom(item =>
+                {
+                    item.Title = "Jobs";
+                    item.Icon = "jobs";
+                    item.Url = "/hangfire";
+                    item.External = true;
+                });
         });
 
         services.AddScoped<IShellNavigation, ArcaNavigation>();
