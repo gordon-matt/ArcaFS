@@ -80,6 +80,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddArcaFsShell();
 
+builder.Services.ConfigureNetForgeToastSounds(sounds => sounds.EnableSounds = true);
+
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DownloadTicketService>();
 
