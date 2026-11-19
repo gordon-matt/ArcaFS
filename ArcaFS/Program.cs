@@ -1,4 +1,5 @@
 using ArcaFS.Components;
+using Heroicsoft.NetForge.Components;
 using Hangfire;
 using Heroicsoft.NetForge.Abstractions.Data;
 using LogVue;
@@ -90,6 +91,7 @@ app.UseForwardedHeaders(forwardedHeaders);
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.MapStaticAssets();
+app.MapNetForgeAssets();
 
 app.UseAntiforgery();
 

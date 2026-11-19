@@ -11,7 +11,7 @@
 		<PackageReference Include="Hangfire.Core" Version="1.8.25" />
 		<PackageReference Include="Hangfire.NetCore" Version="1.8.25" />
 		<PackageReference Include="Hangfire.Storage.MySql" Version="2.1.0-beta" />
-		<PackageReference Include="LogVue.Data.MySql" Version="1.1.2" />
+		<PackageReference Include="LogVue.Data.MySql" Version="1.1.6" />
 		<PackageReference Include="MySql.EntityFrameworkCore" Version="10.0.12" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
 			<PrivateAssets>all</PrivateAssets>

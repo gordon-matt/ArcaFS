@@ -10,7 +10,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Hangfire.Core" Version="1.8.25" />
-		<PackageReference Include="Heroicsoft.NetForge.Abstractions" Version="1.2.0" />
+		<PackageReference Include="Heroicsoft.NetForge.Abstractions" Version="1.2.6" />
 		<!-- Hangfire.Core pulls Newtonsoft.Json 11.0.1, which has advisory GHSA-5crp-9r3c-p9vr. -->
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 	</ItemGroup>
