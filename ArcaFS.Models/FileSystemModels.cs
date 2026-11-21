@@ -95,6 +95,12 @@ public record TransferRequest
 
     /// <summary>Overwrite existing destination entries. Requires <see cref="FilePermission.Modify"/>.</summary>
     public bool Overwrite { get; init; }
+
+    /// <summary>
+    /// When the destination name is taken and <see cref="Overwrite"/> is false, write beside it
+    /// as "name (2)" instead of reporting a conflict. The caller already asked the user.
+    /// </summary>
+    public bool RenameOnConflict { get; init; }
 }
 
 public record DeleteRequest
@@ -111,7 +117,17 @@ public record SaveTextFileRequest
     public string Path { get; init; } = string.Empty;
 
     public string Content { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The modified time the editor observed when it opened the file. When set, a save is refused
+    /// if the file changed in between, so two people don't silently overwrite each other.
+    /// Leave it null when creating a file, or when an undo is writing bytes it just verified.
+    /// </summary>
+    public DateTime? ExpectedModifiedAt { get; init; }
 }
+
+/// <summary>Where a text save landed, and the modified time to send with the next save.</summary>
+public sealed record TextSaveDto(string Path, string Name, DateTime ModifiedAt);
 
 public record CreateArchiveRequest
 {
@@ -140,7 +156,19 @@ public record ExtractArchiveRequest
     public string? DestinationPath { get; init; }
 
     public bool Overwrite { get; init; }
+
+    /// <summary>
+    /// Per top-level name inside the archive. Empty keeps the previous behaviour: any collision
+    /// refuses the extract before a byte is written.
+    /// </summary>
+    public IReadOnlyList<ExtractNameChoice> NameChoices { get; init; } = [];
 }
+
+/// <summary>One colliding top-level archive entry, and whether replace is safe.</summary>
+public sealed record ExtractConflictDto(string Name, bool AllowReplace);
+
+/// <summary>The user's decision for one colliding top-level name.</summary>
+public sealed record ExtractNameChoice(string Name, NameConflictChoice Choice);
 
 /// <summary>Listing query state — kept in the URL so a folder view is linkable.</summary>
 public record ListingRequest
@@ -158,6 +186,9 @@ public record ListingRequest
     /// <summary>Type-ahead filter applied to the current directory only.</summary>
     public string? Filter { get; init; }
 
+    /// <summary>Type chip. Folders are always included so navigation still works.</summary>
+    public KindFilter Kind { get; init; } = KindFilter.All;
+
     public int PageNumber { get; init; } = 1;
 
     public int PageSize { get; init; } = 500;
@@ -170,7 +201,9 @@ public record ListingRequest
 public record FileOperationResultDto(
     string Path,
     bool Succeeded,
-    string? Error);
+    string? Error,
+    string? ResultPath = null,
+    bool NameConflict = false);
 
 public record BulkOperationResultDto(
     int SucceededCount,

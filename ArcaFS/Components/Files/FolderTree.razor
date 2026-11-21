@@ -1,0 +1,176 @@
+@inject IFileSystemService FileSystemService
+
+@* Folders under the current source, loaded one level at a time as they open. *@
+<nav class="arca-tree" aria-label="Folders">
+    @if (SourceName is not null)
+    {
+        @Node(RootItem, depth: 0)
+    }
+</nav>
+
+@code {
+    private readonly Dictionary<string, IReadOnlyList<FileSystemItemDto>> children = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> expanded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> loading = new(StringComparer.OrdinalIgnoreCase);
+    private int loadedSourceId;
+
+    [Parameter, EditorRequired]
+    public int SourceId { get; set; }
+
+    [Parameter]
+    public string? SourceName { get; set; }
+
+    [Parameter]
+    public string CurrentPath { get; set; } = Constants.RootPath;
+
+    [Parameter]
+    public EventCallback<string> OnNavigate { get; set; }
+
+    /// <summary>Right-click uses the same menu as a folder in the listing.</summary>
+    [Parameter]
+    public EventCallback<(FileSystemItemDto Item, MouseEventArgs Args)> OnContextMenu { get; set; }
+
+    private FileSystemItemDto RootItem => new(
+        SourceName ?? "Files",
+        Constants.RootPath,
+        true,
+        0,
+        default,
+        FileKind.Folder,
+        null,
+        false,
+        false,
+        null,
+        false);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedSourceId != SourceId)
+        {
+            loadedSourceId = SourceId;
+            children.Clear();
+            expanded.Clear();
+            loading.Clear();
+        }
+
+        // Open every ancestor of the current folder so the tree shows where the listing is.
+        string accumulated = Constants.RootPath;
+        await ExpandAsync(accumulated);
+        foreach (string segment in VirtualPath.GetSegments(CurrentPath))
+        {
+            string next = VirtualPath.Combine(accumulated, segment);
+            if (string.Equals(next, CurrentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            accumulated = next;
+            await ExpandAsync(accumulated);
+        }
+    }
+
+    /// <summary>Drops cached children of <paramref name="path"/> so the next paint reloads them.</summary>
+    public async Task RefreshAsync(string path)
+    {
+        children.Remove(path);
+        if (expanded.Contains(path))
+        {
+            await LoadAsync(path);
+        }
+
+        StateHasChanged();
+    }
+
+    private RenderFragment Node(FileSystemItemDto item, int depth) => __builder =>
+    {
+        string path = item.Path;
+        string name = item.Name;
+        bool hasChildren = depth == 0 || item.ChildCount is null or > 0;
+        bool isOpen = expanded.Contains(path);
+        bool isCurrent = string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase);
+
+        <div class="arca-tree-row @(isCurrent ? "arca-tree-current" : null)"
+             style="padding-inline-start: @(depth * 14 + 4)px"
+             data-arca-drop="@path"
+             @oncontextmenu="e => OnContextMenu.InvokeAsync((item, e))"
+             @oncontextmenu:preventDefault="true"
+             @oncontextmenu:stopPropagation="true">
+            @if (hasChildren)
+            {
+                <button type="button" class="arca-tree-toggle"
+                        aria-label="@(isOpen ? $"Collapse {name}" : $"Expand {name}")"
+                        aria-expanded="@(isOpen ? "true" : "false")"
+                        @onclick="() => ToggleAsync(path)"
+                        @onclick:stopPropagation="true">
+                    <i class="bi @(isOpen ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                </button>
+            }
+            else
+            {
+                <span class="arca-tree-toggle"></span>
+            }
+            <button type="button" class="arca-tree-label" title="@name"
+                    @onclick="() => OnNavigate.InvokeAsync(path)">
+                <i class="bi @(depth == 0 ? "bi-hdd" : isOpen ? "bi-folder2-open" : "bi-folder") arca-tree-folder"></i>
+                <span>@name</span>
+            </button>
+        </div>
+
+        @if (isOpen && children.TryGetValue(path, out IReadOnlyList<FileSystemItemDto>? rows))
+        {
+            @foreach (FileSystemItemDto child in rows)
+            {
+                @Node(child, depth + 1)
+            }
+        }
+        else if (isOpen && loading.Contains(path))
+        {
+            <div class="arca-tree-loading" style="padding-inline-start: @((depth + 1) * 14 + 26)px">Loading…</div>
+        }
+    };
+
+    private async Task ToggleAsync(string path)
+    {
+        if (!expanded.Remove(path))
+        {
+            await ExpandAsync(path);
+        }
+    }
+
+    private async Task ExpandAsync(string path)
+    {
+        expanded.Add(path);
+        if (!children.ContainsKey(path))
+        {
+            await LoadAsync(path);
+        }
+    }
+
+    private async Task LoadAsync(string path)
+    {
+        if (!loading.Add(path))
+        {
+            return;
+        }
+
+        try
+        {
+            Result<DirectoryListingDto> listed = await FileSystemService.ListAsync(new ListingRequest
+            {
+                SourceId = SourceId,
+                Path = path,
+                Kind = KindFilter.Folders,
+                SortBy = ListingSortField.Name,
+                PageSize = 2000,
+            });
+
+            children[path] = listed.IsSuccess
+                ? listed.Value.Items.Where(item => item.IsDirectory).ToList()
+                : [];
+        }
+        finally
+        {
+            loading.Remove(path);
+        }
+    }
+}

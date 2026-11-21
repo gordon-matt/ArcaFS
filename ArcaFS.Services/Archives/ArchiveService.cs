@@ -178,25 +178,46 @@ public sealed class ArchiveService(
         }
 
         var results = new List<FileOperationResultDto>();
+        Dictionary<string, string>? renamedTops = null;
+        IReadOnlyDictionary<string, NameConflictChoice>? choices = null;
 
         try
         {
-            if (!request.Overwrite)
+            // Closed before the extract opens the same file. On Windows the first handle would
+            // otherwise keep the archive locked and the second open would fail.
+            using (IArchive listing = ArchiveFactory.OpenArchive(
+                archive.Value.PhysicalPath,
+                ReaderOptions.ForFilePath))
             {
-                using var listing = ArchiveFactory.OpenArchive(
-                    archive.Value.PhysicalPath,
-                    ReaderOptions.ForFilePath);
+                var entries = listing.Entries
+                    .Where(e => e.Key is not null)
+                    .Select(e => (e.Key!, e.IsDirectory))
+                    .ToList();
 
-                var conflicts = FindConflictingExtractNames(
-                    destination.Value.PhysicalPath,
-                    listing.Entries
-                        .Where(e => e.Key is not null)
-                        .Select(e => (e.Key!, e.IsDirectory)));
-
-                if (conflicts.Count > 0)
+                if (request.NameChoices.Count == 0)
                 {
-                    return Result<BulkOperationResultDto>.Conflict(
-                        FormatAlreadyExistsMessage(conflicts));
+                    if (!request.Overwrite)
+                    {
+                        IReadOnlyList<string> conflicts = FindConflictingExtractNames(
+                            destination.Value.PhysicalPath,
+                            entries);
+
+                        if (conflicts.Count > 0)
+                        {
+                            return Result<BulkOperationResultDto>.Conflict(
+                                FormatAlreadyExistsMessage(conflicts));
+                        }
+                    }
+                }
+                else
+                {
+                    choices = request.NameChoices
+                        .GroupBy(choice => choice.Name, NameComparer)
+                        .ToDictionary(group => group.Key, group => group.Last().Choice, NameComparer);
+                    renamedTops = BuildRenamedTops(
+                        destination.Value.PhysicalPath,
+                        entries,
+                        choices);
                 }
             }
 
@@ -206,6 +227,8 @@ public sealed class ArchiveService(
                 archive.Value.PhysicalPath,
                 destination.Value.PhysicalPath,
                 request.Overwrite,
+                choices,
+                renamedTops,
                 cancellationToken);
         }
         catch (InvalidOperationException ex)
@@ -231,6 +254,54 @@ public sealed class ArchiveService(
             cancellationToken: cancellationToken);
 
         return Result<BulkOperationResultDto>.Success(BulkOperationResultDto.From(results));
+    }
+
+    public async Task<Result<IReadOnlyList<ExtractConflictDto>>> GetExtractConflictsAsync(
+        int sourceId,
+        string path,
+        string? destinationPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        Result<ResolvedPath> archive = await permissionService.RequireAsync(
+            sourceId,
+            path,
+            FilePermission.Read | FilePermission.Extract,
+            cancellationToken);
+
+        if (!archive.IsSuccess)
+        {
+            return archive.To<IReadOnlyList<ExtractConflictDto>>();
+        }
+
+        if (!File.Exists(archive.Value.PhysicalPath))
+        {
+            return Result<IReadOnlyList<ExtractConflictDto>>.NotFound($"'{path}' was not found.");
+        }
+
+        string destinationVirtual = DefaultExtractDestination(archive.Value.ScopedVirtualPath, destinationPath);
+        Result<ResolvedPath> destination = await permissionService.RequireAsync(
+            sourceId,
+            destinationVirtual,
+            FilePermission.Create,
+            cancellationToken);
+
+        if (!destination.IsSuccess)
+        {
+            return destination.To<IReadOnlyList<ExtractConflictDto>>();
+        }
+
+        if (File.Exists(destination.Value.PhysicalPath))
+        {
+            return Result<IReadOnlyList<ExtractConflictDto>>.Conflict(
+                $"'{Path.GetFileName(destination.Value.PhysicalPath)}' already exists here.");
+        }
+
+        using var listing = ArchiveFactory.OpenArchive(archive.Value.PhysicalPath, ReaderOptions.ForFilePath);
+        IReadOnlyList<ExtractConflictDto> conflicts = FindTopLevelExtractConflicts(
+            destination.Value.PhysicalPath,
+            listing.Entries.Where(entry => entry.Key is not null).Select(entry => (entry.Key!, entry.IsDirectory)));
+
+        return Result<IReadOnlyList<ExtractConflictDto>>.Success(conflicts);
     }
 
     public async Task<Result<IReadOnlyList<ArchiveEntryDto>>> ListEntriesAsync(
@@ -347,6 +418,8 @@ public sealed class ArchiveService(
         string archivePhysical,
         string destinationRoot,
         bool overwrite,
+        IReadOnlyDictionary<string, NameConflictChoice>? choices,
+        IReadOnlyDictionary<string, string>? renamedTops,
         CancellationToken cancellationToken)
     {
         var results = new List<FileOperationResultDto>();
@@ -394,6 +467,33 @@ public sealed class ArchiveService(
                 continue;
             }
 
+            string? top = TopSegment(entry.Key);
+            bool replaceThis = overwrite;
+            string entryKey = entry.Key;
+            if (choices is not null && top is not null && choices.TryGetValue(top, out NameConflictChoice choice))
+            {
+                if (choice is NameConflictChoice.Skip or NameConflictChoice.Cancel)
+                {
+                    continue;
+                }
+
+                replaceThis = choice == NameConflictChoice.Replace;
+                if (choice == NameConflictChoice.Rename
+                    && renamedTops is not null
+                    && renamedTops.TryGetValue(top, out string? renamed))
+                {
+                    entryKey = RewriteTop(entry.Key, renamed);
+                    entryDestination = ResolveEntryDestination(normalizedRoot, entryKey);
+                    if (entryDestination is null)
+                    {
+                        results.Add(new FileOperationResultDto(entry.Key, false, "Skipped: the new name is not a safe path."));
+                        continue;
+                    }
+
+                    replaceThis = false;
+                }
+            }
+
             if (entry.IsDirectory)
             {
                 Directory.CreateDirectory(entryDestination);
@@ -407,7 +507,7 @@ public sealed class ArchiveService(
                     "so it was not extracted.");
             }
 
-            if (!overwrite && (File.Exists(entryDestination) || Directory.Exists(entryDestination)))
+            if (!replaceThis && (File.Exists(entryDestination) || Directory.Exists(entryDestination)))
             {
                 results.Add(new FileOperationResultDto(entry.Key, false, "Already exists."));
                 continue;
@@ -419,7 +519,7 @@ public sealed class ArchiveService(
 
                 reader.WriteEntryToFile(entryDestination, new ExtractionOptions
                 {
-                    Overwrite = overwrite,
+                    Overwrite = replaceThis,
 
                     // Never honour an archive's stored permissions or timestamps blindly; a
                     // crafted archive could mark an extracted file executable.
@@ -498,6 +598,107 @@ public sealed class ArchiveService(
     }
 
     internal static string FormatAlreadyExistsMessage(IReadOnlyList<string> names) => names.Count == 1 ? $"'{names[0]}' already exists here." : "One or more files already exist here.";
+
+    private static StringComparer NameComparer =>
+        OperatingSystem.IsLinux() ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+
+    /// <summary>
+    /// One row per top-level name that would land on an existing file or folder. Nested entries
+    /// are asked about once, as the folder they sit in, which is the name the user can see.
+    /// </summary>
+    internal static IReadOnlyList<ExtractConflictDto> FindTopLevelExtractConflicts(
+        string destinationRoot,
+        IEnumerable<(string Key, bool IsDirectory)> entries)
+    {
+        string normalizedRoot = Path.GetFullPath(destinationRoot);
+        var incomingIsDirectory = new Dictionary<string, bool>(NameComparer);
+
+        foreach ((string key, bool isDirectory) in entries)
+        {
+            string? top = TopSegment(key);
+            if (top is null)
+            {
+                continue;
+            }
+
+            bool asDirectory = isDirectory || key.Contains('/') || key.Contains('\\');
+            incomingIsDirectory[top] = incomingIsDirectory.GetValueOrDefault(top) || asDirectory;
+        }
+
+        var conflicts = new List<ExtractConflictDto>();
+        foreach ((string top, bool incomingDirectory) in incomingIsDirectory)
+        {
+            string? destination = ResolveEntryDestination(normalizedRoot, top);
+            if (destination is null)
+            {
+                continue;
+            }
+
+            bool existingDirectory = Directory.Exists(destination);
+            bool existingFile = File.Exists(destination);
+            if (!existingDirectory && !existingFile)
+            {
+                continue;
+            }
+
+            conflicts.Add(new ExtractConflictDto(top, AllowReplace: existingDirectory == incomingDirectory));
+        }
+
+        return conflicts;
+    }
+
+    private static Dictionary<string, string> BuildRenamedTops(
+        string destinationRoot,
+        IEnumerable<(string Key, bool IsDirectory)> entries,
+        IReadOnlyDictionary<string, NameConflictChoice> choices)
+    {
+        var incomingIsDirectory = new HashSet<string>(NameComparer);
+        foreach ((string key, bool isDirectory) in entries)
+        {
+            string? top = TopSegment(key);
+            if (top is not null && (isDirectory || key.Contains('/') || key.Contains('\\')))
+            {
+                incomingIsDirectory.Add(top);
+            }
+        }
+
+        var renamed = new Dictionary<string, string>(NameComparer);
+        foreach ((string name, NameConflictChoice choice) in choices)
+        {
+            if (choice != NameConflictChoice.Rename)
+            {
+                continue;
+            }
+
+            renamed[name] = FreeNames.Find(destinationRoot, name, incomingIsDirectory.Contains(name));
+        }
+
+        return renamed;
+    }
+
+    internal static string? TopSegment(string? entryKey)
+    {
+        if (string.IsNullOrWhiteSpace(entryKey))
+        {
+            return null;
+        }
+
+        string cleaned = entryKey.Replace('\\', '/').Trim().Trim('/');
+        if (cleaned.Length == 0 || cleaned.Contains("..", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        int slash = cleaned.IndexOf('/');
+        return slash < 0 ? cleaned : cleaned[..slash];
+    }
+
+    private static string RewriteTop(string entryKey, string newTop)
+    {
+        string cleaned = entryKey.Replace('\\', '/').Trim().TrimStart('/');
+        int slash = cleaned.IndexOf('/');
+        return slash < 0 ? newTop : newTop + cleaned[slash..];
+    }
 
     /// <summary>
     /// Maps an archive entry name to a path inside <paramref name="destinationRoot"/>, or null

@@ -9,7 +9,8 @@ public sealed class ThumbnailService(
     ILogger<ThumbnailService> logger,
     IPermissionService permissionService,
     IOptions<ThumbnailOptions> options,
-    IImageProcessor images) : IThumbnailService
+    IImageProcessor images,
+    VideoFrameCapture videoFrames) : IThumbnailService
 {
     /// <summary>
     /// Sizes the UI is allowed to ask for. Unbounded sizes would let one request fill the cache
@@ -65,7 +66,8 @@ public sealed class ThumbnailService(
             return Result<ThumbnailDto>.NotFound();
         }
 
-        if (FileKinds.Classify(Path.GetFileName(target.PhysicalPath), false) != FileKind.Image)
+        FileKind kind = FileKinds.Classify(Path.GetFileName(target.PhysicalPath), false);
+        if (kind != FileKind.Image && kind != FileKind.Video)
         {
             return Result<ThumbnailDto>.NotFound();
         }
@@ -91,7 +93,9 @@ public sealed class ThumbnailService(
 
         try
         {
-            byte[] bytes = await GenerateAsync(target.PhysicalPath, resolvedSize, cancellationToken);
+            byte[] bytes = kind == FileKind.Video
+                ? await GenerateVideoAsync(target.PhysicalPath, resolvedSize, cancellationToken)
+                : await GenerateAsync(target.PhysicalPath, resolvedSize, cancellationToken);
 
             await WriteCacheAsync(cachePath, bytes, cancellationToken);
 
@@ -170,6 +174,31 @@ public sealed class ThumbnailService(
         // Strip metadata: EXIF can carry GPS coordinates, and a thumbnail served to a share
         // visitor should not leak where a photo was taken.
         var processed = await images.ResizeAsync(physicalPath, new ImageTransform
+        {
+            Width = size,
+            Height = size,
+            Mode = ImageScaleMode.Max,
+            Format = RasterFormat.Webp,
+            Quality = settings.Quality,
+            StripMetadata = true,
+            MaxPixels = MaxPixels,
+        }, cancellationToken);
+
+        return processed.Bytes;
+    }
+
+    private async Task<byte[]> GenerateVideoAsync(
+        string physicalPath,
+        int size,
+        CancellationToken cancellationToken)
+    {
+        byte[]? frame = await videoFrames.TryCaptureAsync(physicalPath, cancellationToken);
+        if (frame is null || frame.Length == 0)
+        {
+            throw new InvalidOperationException("No video frame could be read.");
+        }
+
+        ProcessedImage processed = await images.ResizeAsync(frame, new ImageTransform
         {
             Width = size,
             Height = size,

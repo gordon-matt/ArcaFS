@@ -22,9 +22,12 @@
 		<PackageReference Include="Microsoft.AspNetCore.Components.Authorization" />
 		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" />
 		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
 		<PackageReference Include="Microsoft.Extensions.Http" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="SharpCompress" />
+		<PackageReference Include="Xabe.FFmpeg" />
+		<PackageReference Include="Xabe.FFmpeg.Downloader" />
 	</ItemGroup>
 
 	<ItemGroup>

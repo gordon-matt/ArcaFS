@@ -179,6 +179,20 @@ public static class FileKinds
     /// </summary>
     public static bool IsEditable(FileKind kind) => kind is FileKind.Text or FileKind.Code;
 
+    /// <summary>
+    /// Whether <paramref name="kind"/> belongs in a folder listing filtered by <paramref name="filter"/>.
+    /// Folders are decided by the caller: a type chip still has to let the user open a directory.
+    /// </summary>
+    public static bool Matches(FileKind kind, KindFilter filter) => filter switch
+    {
+        KindFilter.Images => kind == FileKind.Image,
+        KindFilter.Documents => kind is FileKind.Document or FileKind.Pdf or FileKind.Epub or FileKind.Text or FileKind.Code,
+        KindFilter.Media => kind is FileKind.Video or FileKind.Audio,
+        KindFilter.Archives => kind == FileKind.Archive,
+        KindFilter.Folders => kind == FileKind.Folder,
+        _ => true,
+    };
+
     /// <summary>Kinds the in-app viewer can show, whether in a dialog or on a page.</summary>
     public static bool CanPreview(FileKind kind) => kind is
         FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf

@@ -1,0 +1,86 @@
+@* One colliding name at a time. Apply-to-rest keeps a folder drop from asking a hundred times. *@
+@if (isVisible)
+{
+    <div class="modal fade show d-block" tabindex="-1" role="alertdialog" aria-modal="true"
+         aria-labelledby="@titleId" @onkeydown="OnKeyDown">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="@titleId">“@name” already exists</h2>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">Choose what to do with this item.</p>
+                    @if (remaining > 0)
+                    {
+                        <div class="form-check mt-3">
+                            <input id="@applyId" class="form-check-input" type="checkbox" @bind="applyToRest" />
+                            <label class="form-check-label" for="@applyId">
+                                Do this for the next @remaining
+                            </label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-link me-auto" @onclick="Cancel">Cancel</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => Close(NameConflictChoice.Skip)" autofocus>Skip</button>
+                    <button type="button" class="btn btn-outline-primary" @onclick="() => Close(NameConflictChoice.Rename)">Keep both</button>
+                    @if (allowReplace)
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="() => Close(NameConflictChoice.Replace)">Replace</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private readonly string titleId = $"arca-conflict-{Guid.NewGuid():N}";
+    private readonly string applyId = $"arca-conflict-apply-{Guid.NewGuid():N}";
+    private bool isVisible;
+    private bool applyToRest;
+    private bool allowReplace;
+    private int remaining;
+    private string name = string.Empty;
+    private TaskCompletionSource<NameConflictAnswer>? completion;
+
+    /// <summary>
+    /// Asks about one name. <paramref name="allowReplace"/> is false when the existing item is a
+    /// different kind, such as a folder where a file would land, or when the user cannot modify.
+    /// </summary>
+    public Task<NameConflictAnswer> ShowAsync(string itemName, int itemsRemaining, bool canReplace)
+    {
+        completion?.TrySetResult(new NameConflictAnswer(NameConflictChoice.Cancel, false));
+
+        name = itemName;
+        remaining = itemsRemaining;
+        allowReplace = canReplace;
+        applyToRest = false;
+        isVisible = true;
+        completion = new TaskCompletionSource<NameConflictAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        StateHasChanged();
+        return completion.Task;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            Cancel();
+        }
+    }
+
+    private void Cancel() => Close(NameConflictChoice.Cancel);
+
+    private void Close(NameConflictChoice choice)
+    {
+        isVisible = false;
+        completion?.TrySetResult(new NameConflictAnswer(choice, choice != NameConflictChoice.Cancel && applyToRest));
+        completion = null;
+    }
+
+    /// <summary>The button the user pressed, and whether it covers the remaining conflicts.</summary>
+    public readonly record struct NameConflictAnswer(NameConflictChoice Choice, bool ApplyToRest);
+}

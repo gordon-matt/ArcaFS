@@ -54,7 +54,12 @@ public interface IFileSystemService
         string path,
         CancellationToken cancellationToken = default);
 
-    Task<Result> SaveTextAsync(
+    /// <summary>
+    /// Writes text. Creates the file when it does not exist yet. When
+    /// <see cref="SaveTextFileRequest.ExpectedModifiedAt"/> is set, refuses the save if the file
+    /// changed after the editor opened it.
+    /// </summary>
+    Task<Result<TextSaveDto>> SaveTextAsync(
         SaveTextFileRequest request,
         CancellationToken cancellationToken = default);
 

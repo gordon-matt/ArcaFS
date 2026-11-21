@@ -40,6 +40,33 @@ public enum ListingSortField
     Kind = 3,
 }
 
+/// <summary>Type chips above a folder listing. Folders stay visible so the user can still navigate.</summary>
+public enum KindFilter
+{
+    All = 0,
+    Images = 1,
+    Documents = 2,
+    Media = 3,
+    Archives = 4,
+    Folders = 5,
+}
+
+/// <summary>What to do with one item whose name is already taken.</summary>
+public enum NameConflictChoice
+{
+    /// <summary>Stop asking. This item and the ones not yet decided are skipped.</summary>
+    Cancel = 0,
+
+    /// <summary>Overwrite the existing item. Requires modify, and only when both sides are the same kind.</summary>
+    Replace = 1,
+
+    /// <summary>Keep the existing item and write this one under a free name.</summary>
+    Rename = 2,
+
+    /// <summary>Leave the existing item and do not write this one.</summary>
+    Skip = 3,
+}
+
 /// <summary>Broad file classification driving icon, preview mode and <c>type:</c> search filters.</summary>
 public enum FileKind
 {

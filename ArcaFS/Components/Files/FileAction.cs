@@ -26,6 +26,8 @@ public enum FileAction
     Upload,
     UploadFolder,
     SelectAll,
+    InvertSelection,
     ClearSelection,
+    Duplicate,
     Refresh,
 }

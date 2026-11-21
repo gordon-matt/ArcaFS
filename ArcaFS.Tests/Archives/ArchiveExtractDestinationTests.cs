@@ -1,3 +1,4 @@
+using ArcaFS.Models;
 using ArcaFS.Services.Archives;
 
 namespace ArcaFS.Tests.Archives;
@@ -132,6 +133,37 @@ public class ArchiveExtractDestinationTests : IDisposable
         Assert.Equal(
             "One or more files already exist here.",
             ArchiveService.FormatAlreadyExistsMessage(conflicts));
+    }
+
+    [Fact]
+    public void AsksOnceForAFolderWhoseContentsWouldCollide()
+    {
+        Directory.CreateDirectory(Path.Combine(root, "photos"));
+        File.WriteAllText(Path.Combine(root, "notes.txt"), "already");
+
+        IReadOnlyList<ExtractConflictDto> conflicts = ArchiveService.FindTopLevelExtractConflicts(
+            root,
+            [("photos/a.txt", false), ("photos/b.txt", false), ("notes.txt", false), ("fresh.txt", false)]);
+
+        Assert.Equal(2, conflicts.Count);
+        ExtractConflictDto photos = Assert.Single(conflicts, conflict => conflict.Name == "photos");
+        Assert.True(photos.AllowReplace);
+        ExtractConflictDto notes = Assert.Single(conflicts, conflict => conflict.Name == "notes.txt");
+        Assert.True(notes.AllowReplace);
+    }
+
+    [Fact]
+    public void RefusesReplaceWhenAFileWouldLandOnAFolder()
+    {
+        Directory.CreateDirectory(Path.Combine(root, "notes.txt"));
+
+        IReadOnlyList<ExtractConflictDto> conflicts = ArchiveService.FindTopLevelExtractConflicts(
+            root,
+            [("notes.txt", false)]);
+
+        ExtractConflictDto conflict = Assert.Single(conflicts);
+        Assert.Equal("notes.txt", conflict.Name);
+        Assert.False(conflict.AllowReplace);
     }
 
     public void Dispose()

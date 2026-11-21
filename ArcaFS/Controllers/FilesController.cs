@@ -111,7 +111,13 @@ public sealed class FilesController(
 
         // A dropped folder arrives as files carrying their relative path, so the destination is
         // the target directory plus that path's directory part.
-        string destination = CombineRelativeDirectory(form.Path, form.RelativePath);
+        string relativePath = string.IsNullOrWhiteSpace(form.TargetRelativePath)
+            ? form.RelativePath ?? string.Empty
+            : form.TargetRelativePath;
+        string destination = CombineRelativeDirectory(form.Path, relativePath);
+        string fileName = string.IsNullOrWhiteSpace(form.TargetFileName)
+            ? Path.GetFileName(form.File.FileName)
+            : form.TargetFileName;
 
         await using var stream = form.File.OpenReadStream();
 
@@ -120,7 +126,7 @@ public sealed class FilesController(
             {
                 SourceId = form.SourceId,
                 Path = destination,
-                FileName = Path.GetFileName(form.File.FileName),
+                FileName = fileName,
                 Content = stream,
                 Overwrite = form.Overwrite,
                 ChunkOffset = form.ChunkOffset,
@@ -221,6 +227,15 @@ public sealed class UploadFormRequest
 
     /// <summary>Path within a dropped folder, so its structure survives the upload.</summary>
     public string? RelativePath { get; set; }
+
+    /// <summary>
+    /// Replaces <see cref="RelativePath"/> when the user chose to keep both copies. The directory
+    /// part is where the file lands; a renamed file also sets <see cref="TargetFileName"/>.
+    /// </summary>
+    public string? TargetRelativePath { get; set; }
+
+    /// <summary>Used when a single file is kept under a new name. Empty keeps the uploaded name.</summary>
+    public string? TargetFileName { get; set; }
 
     public bool Overwrite { get; set; }
 

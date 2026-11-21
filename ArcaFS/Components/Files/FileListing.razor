@@ -32,7 +32,12 @@ else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact
             {
                 <tr @key="item.Path"
                     class="@RowClass(item)"
+                    draggable="true"
+                    data-arca-path="@item.Path"
+                    data-arca-draggable="true"
+                    data-arca-drop="@(item.IsDirectory ? item.Path : null)"
                     @onclick="e => OnItemClick.InvokeAsync((item, e))"
+                    @onclick:stopPropagation="true"
                     @ondblclick="() => OnItemActivate.InvokeAsync(item)"
                     @oncontextmenu="e => OnItemContextMenu.InvokeAsync((item, e))"
                     @oncontextmenu:preventDefault
@@ -45,10 +50,11 @@ else if (ViewMode == ListingViewMode.List || ViewMode == ListingViewMode.Compact
                     </td>
                     <td>
                         <div class="arca-name-cell">
-                            @if (ShowThumbnails && item.HasThumbnail && ViewMode == ListingViewMode.List)
+                            @if (ShowThumbnails && item.HasThumbnail && ViewMode == ListingViewMode.List && !failedThumbs.Contains(item.Path))
                             {
                                 <div class="arca-file-face arca-file-face-sm arca-checkered">
-                                    <img loading="lazy" alt="" src="@ThumbnailUrl(item, 48)" />
+                                    <img loading="lazy" alt="" src="@ThumbnailUrl(item, 48)"
+                                         @onerror="() => failedThumbs.Add(item.Path)" />
                                 </div>
                             }
                             else
@@ -81,7 +87,12 @@ else
         {
             <div @key="item.Path"
                  class="arca-grid-item @(SelectedPaths.Contains(item.Path) ? "selected" : null) @(CutPaths.Contains(item.Path) ? "cut" : null)"
+                 draggable="true"
+                 data-arca-path="@item.Path"
+                 data-arca-draggable="true"
+                 data-arca-drop="@(item.IsDirectory ? item.Path : null)"
                  @onclick="e => OnItemClick.InvokeAsync((item, e))"
+                 @onclick:stopPropagation="true"
                  @ondblclick="() => OnItemActivate.InvokeAsync(item)"
                  @oncontextmenu="e => OnItemContextMenu.InvokeAsync((item, e))"
                  @oncontextmenu:preventDefault
@@ -92,10 +103,11 @@ else
                        @onclick:stopPropagation="true"
                        @onchange="() => OnToggleSelect.InvokeAsync(item)" />
 
-                @if (ShowThumbnails && item.HasThumbnail)
+                @if (ShowThumbnails && item.HasThumbnail && !failedThumbs.Contains(item.Path))
                 {
                     <div class="arca-file-face arca-checkered">
-                        <img loading="lazy" alt="@item.Name" src="@ThumbnailUrl(item, 256)" />
+                        <img loading="lazy" alt="@item.Name" src="@ThumbnailUrl(item, 256)"
+                             @onerror="() => failedThumbs.Add(item.Path)" />
                     </div>
                 }
                 else
@@ -162,6 +174,8 @@ else
 
     [Parameter]
     public EventCallback<ListingSortField> OnSort { get; set; }
+
+    private readonly HashSet<string> failedThumbs = new(StringComparer.Ordinal);
 
     private bool AreAllSelected => Items.Count > 0 && Items.All(i => SelectedPaths.Contains(i.Path));
 

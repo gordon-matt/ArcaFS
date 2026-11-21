@@ -54,7 +54,7 @@ public sealed partial class FileSystemService
         var info = new DirectoryInfo(physical);
 
         return Result<FileSystemItemDto>.Success(
-            ToItem(info, virtualPath, parent.Value.Permissions));
+            ToItem(info, virtualPath, parent.Value.Permissions, videoThumbnails.IsAvailable));
     }
 
     public async Task<Result<FileSystemItemDto>> RenameAsync(
@@ -142,7 +142,7 @@ public sealed partial class FileSystemService
             : new FileInfo(destination);
 
         return Result<FileSystemItemDto>.Success(
-            ToItem(renamed, newVirtualPath, target.Permissions));
+            ToItem(renamed, newVirtualPath, target.Permissions, videoThumbnails.IsAvailable));
     }
 
     public async Task<Result<BulkOperationResultDto>> DeleteAsync(
@@ -319,16 +319,32 @@ public sealed partial class FileSystemService
         {
             return request.IsCopy
                 ? await CopyBesideAsync(origin, destination, cancellationToken)
-                : new FileOperationResultDto(origin.ScopedVirtualPath, true, null);
+                : new FileOperationResultDto(origin.ScopedVirtualPath, true, null, origin.ScopedVirtualPath);
         }
 
-        bool exists = Directory.Exists(finalPath) || File.Exists(finalPath);
-        if (exists && !request.Overwrite)
+        bool destinationIsDirectory = Directory.Exists(finalPath);
+        bool exists = destinationIsDirectory || File.Exists(finalPath);
+        if (exists && destinationIsDirectory != isDirectory)
         {
             return new FileOperationResultDto(
                 origin.ScopedVirtualPath,
                 false,
-                $"'{name}' already exists in the destination.");
+                $"'{name}' already exists here as a {(destinationIsDirectory ? "folder" : "file")}.");
+        }
+
+        if (exists && !request.Overwrite)
+        {
+            if (!request.RenameOnConflict)
+            {
+                return new FileOperationResultDto(
+                    origin.ScopedVirtualPath,
+                    false,
+                    $"'{name}' already exists in the destination.",
+                    NameConflict: true);
+            }
+
+            name = FreeNames.Find(destination.PhysicalPath, name, isDirectory);
+            finalPath = Path.Combine(destination.PhysicalPath, name);
         }
 
         try
@@ -364,7 +380,7 @@ public sealed partial class FileSystemService
                 request.IsCopy ? "Could not be copied." : "Could not be moved.");
         }
 
-        string destinationVirtual = VirtualPath.Combine(destination.ScopedVirtualPath, name);
+        string destinationVirtual = VirtualPath.Combine(destination.ScopedVirtualPath, Path.GetFileName(finalPath));
 
         await activityService.RecordAsync(
             request.IsCopy ? ActivityKind.Copy : ActivityKind.Move,
@@ -381,7 +397,7 @@ public sealed partial class FileSystemService
             await InvalidateIndexAsync(request.SourceId, origin.AbsoluteVirtualPath, cancellationToken);
         }
 
-        return new FileOperationResultDto(origin.ScopedVirtualPath, true, null);
+        return new FileOperationResultDto(origin.ScopedVirtualPath, true, null, destinationVirtual);
     }
 
     /// <summary>
@@ -395,7 +411,7 @@ public sealed partial class FileSystemService
     {
         bool isDirectory = Directory.Exists(origin.PhysicalPath);
         string name = Path.GetFileName(origin.PhysicalPath);
-        string unique = FindFreeName(destination.PhysicalPath, name, isDirectory);
+        string unique = FreeNames.Find(destination.PhysicalPath, name, isDirectory);
         string finalPath = Path.Combine(destination.PhysicalPath, unique);
 
         try
@@ -415,37 +431,15 @@ public sealed partial class FileSystemService
             return new FileOperationResultDto(origin.ScopedVirtualPath, false, "Could not be copied.");
         }
 
+        string resultPath = VirtualPath.Combine(destination.ScopedVirtualPath, unique);
         await activityService.RecordAsync(
             ActivityKind.Copy,
             origin.Source.Id,
             origin.ScopedVirtualPath,
-            targetPath: VirtualPath.Combine(destination.ScopedVirtualPath, unique),
+            targetPath: resultPath,
             cancellationToken: cancellationToken);
 
-        return new FileOperationResultDto(origin.ScopedVirtualPath, true, null);
-    }
-
-    /// <summary>
-    /// Appends " (2)", " (3)" and so on until the name is free, preserving the extension.
-    /// </summary>
-    private static string FindFreeName(string directory, string name, bool isDirectory)
-    {
-        string stem = isDirectory ? name : Path.GetFileNameWithoutExtension(name);
-        string extension = isDirectory ? string.Empty : Path.GetExtension(name);
-
-        for (int i = 2; i < 10_000; i++)
-        {
-            string candidate = $"{stem} ({i}){extension}";
-            string full = Path.Combine(directory, candidate);
-
-            if (!File.Exists(full) && !Directory.Exists(full))
-            {
-                return candidate;
-            }
-        }
-
-        // Vanishingly unlikely, but a unique name still beats an exception.
-        return $"{stem} ({Guid.NewGuid():N}){extension}";
+        return new FileOperationResultDto(origin.ScopedVirtualPath, true, null, resultPath);
     }
 
     /// <summary>

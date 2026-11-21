@@ -7,6 +7,7 @@
 @inject IJSRuntime JS
 @inject ToastService Toasts
 @inject DialogService Dialogs
+@inject FileEditHistory History
 
 <PageTitle>@(file?.Name ?? "Editor") - ArcaFS</PageTitle>
 
@@ -97,6 +98,7 @@ else
 
     private TextFileContentDto? file;
     private string content = string.Empty;
+    private string savedContent = string.Empty;
     private bool isDirty;
     private bool isSaving;
     private string? loadError;
@@ -130,6 +132,7 @@ else
         {
             file = result.Value;
             content = file.Content;
+            savedContent = file.Content;
             isDirty = false;
 
             return;
@@ -154,17 +157,28 @@ else
 
         isSaving = true;
 
+        string previous = savedContent;
         var result = await FileSystemService.SaveTextAsync(new SaveTextFileRequest
         {
             SourceId = SourceId,
             Path = file.Path,
             Content = content,
+            ExpectedModifiedAt = file.ModifiedAt,
         });
 
         isSaving = false;
 
         if (result.IsSuccess)
         {
+            if (previous.Length <= FileEditHistory.MaxUndoTextChars
+                && content.Length <= FileEditHistory.MaxUndoTextChars
+                && !string.Equals(previous, content, StringComparison.Ordinal))
+            {
+                History.Push(new TextEditAction(SourceId, file.Path, previous, content));
+            }
+
+            savedContent = content;
+            file = file with { ModifiedAt = result.Value.ModifiedAt, Path = result.Value.Path, Name = result.Value.Name };
             isDirty = false;
             Toasts.Success("Saved.");
 
@@ -175,6 +189,8 @@ else
         {
             ResultStatus.Forbidden => "You don't have permission to save this file.",
             ResultStatus.NotFound => "That file no longer exists.",
+            ResultStatus.Conflict => result.Errors.FirstOrDefault()
+                ?? "This file was changed by someone else after you opened it. Reload it before saving.",
             _ => result.Errors.FirstOrDefault() ?? "The file could not be saved.",
         });
     }

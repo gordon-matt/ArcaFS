@@ -16,56 +16,79 @@
 @inject SidebarRefresh SidebarRefresh
 @inject IServerSettingsService SettingsService
 @inject DialogService Dialogs
+@inject FileEditHistory History
 
 <PageTitle>@(listing?.Path == Constants.RootPath ? listing?.SourceName : CurrentFolderName) - ArcaFS</PageTitle>
 
-<div class="d-flex flex-column h-100">
-    @* ------------------------------------------------------------------- toolbar *@
-    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-        @if (listing is not null)
-        {
-            <Breadcrumbs Items="listing.Breadcrumbs" SourceId="SourceId" OnNavigate="NavigateToAsync" />
-        }
+<div class="arca-fm">
+    <div class="arca-toolbar">
+        <div class="arca-toolbar-row">
+            @if (listing is not null)
+            {
+                <Breadcrumbs Items="listing.Breadcrumbs" SourceId="SourceId" OnNavigate="NavigateToAsync" />
+            }
+        </div>
 
-        <div class="ms-auto d-flex align-items-center gap-1">
+        <div class="arca-toolbar-row">
+            <button type="button" class="arca-icon-button @(showTree ? "active" : null)"
+                    title="@(showTree ? "Hide folders" : "Show folders")"
+                    aria-pressed="@(showTree ? "true" : "false")"
+                    @onclick="ToggleTreeAsync">
+                <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+            <button type="button" class="arca-icon-button" title="Undo (Ctrl+Z)"
+                    disabled="@(!History.CanUndo)" @onclick="UndoAsync">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+            <button type="button" class="arca-icon-button" title="Redo (Ctrl+Y)"
+                    disabled="@(!History.CanRedo)" @onclick="RedoAsync">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <span class="arca-toolbar-divider"></span>
+
             @if (selection.Count > 0)
             {
                 <span class="badge text-bg-primary">@selection.Count selected</span>
 
+                <button type="button" class="arca-icon-button" title="Invert selection (Ctrl+Shift+I)"
+                        disabled="@(listing is null || listing.Items.Count == 0)"
+                        @onclick="InvertSelection">
+                    <i class="bi bi-arrow-left-right"></i>
+                </button>
                 @if (Can(FilePermission.Download))
                 {
-                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Download"
+                    <button type="button" class="arca-icon-button" title="Download"
                             @onclick="() => HandleActionAsync(FileAction.Download)">
                         <i class="bi bi-download"></i>
                     </button>
                 }
                 @if (Can(FilePermission.Move))
                 {
-                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Cut"
+                    <button type="button" class="arca-icon-button" title="Cut"
                             @onclick="() => HandleActionAsync(FileAction.Cut)">
                         <i class="bi bi-scissors"></i>
                     </button>
                 }
                 @if (Can(FilePermission.Download))
                 {
-                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy"
+                    <button type="button" class="arca-icon-button" title="Copy"
                             @onclick="() => HandleActionAsync(FileAction.Copy)">
                         <i class="bi bi-files"></i>
                     </button>
                 }
                 @if (Can(FilePermission.Delete))
                 {
-                    <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                    <button type="button" class="arca-icon-button arca-icon-button-danger" title="Delete"
                             @onclick="() => HandleActionAsync(FileAction.Delete)">
                         <i class="bi bi-trash"></i>
                     </button>
                 }
-                <button type="button" class="btn btn-sm btn-outline-secondary" title="Clear selection"
+                <button type="button" class="arca-icon-button" title="Clear selection"
                         @onclick="() => HandleActionAsync(FileAction.ClearSelection)">
                     <i class="bi bi-x-lg"></i>
                 </button>
 
-                <div class="vr mx-1"></div>
+                <span class="arca-toolbar-divider"></span>
             }
 
             @if (clipboard is not null && Can(FilePermission.Create))
@@ -75,7 +98,6 @@
                     <i class="bi bi-clipboard me-1"></i>
                     Paste @clipboard.Paths.Count
                 </button>
-                <div class="vr mx-1"></div>
             }
 
             @if (Can(FilePermission.Create))
@@ -121,18 +143,33 @@
                 </div>
             }
 
-            <div class="input-group input-group-sm" style="width: 11rem;">
-                <span class="input-group-text"><i class="bi bi-funnel"></i></span>
-                <input type="search" class="form-control" placeholder="Filter"
-                       aria-label="Filter this folder"
+            <span class="arca-toolbar-spacer"></span>
+
+            <label class="arca-search">
+                <i class="bi bi-search"></i>
+                <input type="search" placeholder="Filter" aria-label="Filter this folder"
                        @bind="filter" @bind:event="oninput" @bind:after="ApplyFilterAsync" />
+            </label>
+
+            <div class="arca-segmented" role="group" aria-label="File type">
+                @foreach (var option in KindFilters)
+                {
+                    <button type="button" title="@option.Label"
+                            class="@(kindFilter == option.Filter ? "active" : null)"
+                            aria-pressed="@(kindFilter == option.Filter ? "true" : "false")"
+                            @onclick="() => SetKindFilterAsync(option.Filter)">
+                        <i class="bi @option.Icon"></i>
+                        <span class="arca-hide-narrow">@option.Label</span>
+                    </button>
+                }
             </div>
 
-            <div class="btn-group btn-group-sm" role="group" aria-label="View mode">
+            <div class="arca-segmented" role="group" aria-label="View mode">
                 @foreach (var mode in ViewModes)
                 {
                     <button type="button" title="@mode.Label"
-                            class="btn @(viewMode == mode.Mode ? "btn-secondary" : "btn-outline-secondary")"
+                            class="@(viewMode == mode.Mode ? "active" : null)"
+                            aria-pressed="@(viewMode == mode.Mode ? "true" : "false")"
                             @onclick="() => SetViewModeAsync(mode.Mode)">
                         <i class="bi @mode.Icon"></i>
                     </button>
@@ -140,7 +177,7 @@
             </div>
 
             <div class="dropdown">
-                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                <button class="arca-icon-button" type="button"
                         title="Sort and options"
                         aria-expanded="@(optionsMenuOpen ? "true" : "false")"
                         @onclick="() => optionsMenuOpen = !optionsMenuOpen">
@@ -203,7 +240,16 @@
     }
     else
     {
-        <div class="d-flex flex-grow-1 overflow-hidden">
+        <div class="d-flex flex-grow-1 overflow-hidden arca-browser" @ref="browserElement">
+            @if (showTree)
+            {
+                <FolderTree @ref="folderTree"
+                            SourceId="SourceId"
+                            SourceName="@(listing.SourceName)"
+                            CurrentPath="CurrentPath"
+                            OnNavigate="NavigateToAsync"
+                            OnContextMenu="ShowItemContextMenu" />
+            }
             <div class="flex-grow-1 overflow-auto arca-listing" @ref="listingElement"
                  @onclick="ClearSelectionOnBackgroundClick"
                  @oncontextmenu="ShowBackgroundContextMenu"
@@ -216,7 +262,7 @@
                              SelectedPaths="selection"
                              CutPaths="CutPaths"
                              ShowThumbnails="viewMode is not ListingViewMode.Compact"
-                             HasFilter="@(!string.IsNullOrWhiteSpace(filter))"
+                             HasFilter="@(!string.IsNullOrWhiteSpace(filter) || kindFilter != KindFilter.All)"
                              TileSize="tileSize"
                              OnItemClick="HandleItemClickAsync"
                              OnItemActivate="ActivateAsync"
@@ -242,7 +288,7 @@
             }
         </div>
 
-        <div class="d-flex align-items-center gap-3 border-top pt-2 mt-2 small text-body-secondary">
+        <div class="arca-status">
             <span>@listing.TotalCount items</span>
             <span>@FormatBytes(listing.TotalSizeBytes)</span>
             @if (listing.IsSourceReadOnly)
@@ -280,6 +326,8 @@
 <UploadTray Uploads="uploads" OnCancel="CancelUploadAsync" OnDismiss="() => uploads.Clear()" />
 
 <ShareDialog @ref="shareDialog" />
+
+<NameConflictDialog @ref="nameConflicts" />
 
 @code {
     [Parameter]
@@ -323,8 +371,10 @@
     private readonly List<UploadTray.UploadProgress> uploads = [];
 
     private ElementReference listingElement;
+    private ElementReference browserElement;
     private DotNetObjectReference<Files>? dotNetRef;
     private bool jsHandlersRegistered;
+    private string? registeredKey;
     private string InteropKey => $"files-{SourceId}";
     private ShareDialog? shareDialog;
 
@@ -383,32 +433,49 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (dotNetRef is null)
+        {
+            dotNetRef = DotNetObjectReference.Create(this);
+        }
+
+        if (firstRender)
+        {
+            string storedMode = await JS.InvokeAsync<string>("arcafs.getStoredViewMode");
+
+            if (Enum.TryParse(storedMode, ignoreCase: true, out ListingViewMode parsed)
+                && parsed is not ListingViewMode.Gallery)
+            {
+                viewMode = parsed;
+                StateHasChanged();
+            }
+            else if (parsed == ListingViewMode.Gallery)
+            {
+                // Gallery is no longer offered. Drop the stored choice so the tiles button matches.
+                viewMode = ListingViewMode.Normal;
+                await JS.InvokeVoidAsync("arcafs.setStoredViewMode", viewMode.ToString());
+                StateHasChanged();
+            }
+
+            string storedTree = await JS.InvokeAsync<string>("arcafs.getStoredShowTree");
+            if (storedTree is "true" or "false")
+            {
+                showTree = storedTree == "true";
+                StateHasChanged();
+            }
+        }
+
+        // The listing element is absent while the first load is still in flight, so this waits
+        // for the render that actually has it rather than binding to an empty reference.
+        if (jsHandlersRegistered || listingElement.Context is null || browserElement.Context is null)
         {
             return;
         }
 
-        dotNetRef = DotNetObjectReference.Create(this);
-
-        string storedMode = await JS.InvokeAsync<string>("arcafs.getStoredViewMode");
-
-        if (Enum.TryParse(storedMode, ignoreCase: true, out ListingViewMode parsed)
-            && parsed is not ListingViewMode.Gallery)
-        {
-            viewMode = parsed;
-            StateHasChanged();
-        }
-        else if (parsed == ListingViewMode.Gallery)
-        {
-            // Gallery is no longer offered. Drop the stored choice so the tiles button matches.
-            viewMode = ListingViewMode.Normal;
-            await JS.InvokeVoidAsync("arcafs.setStoredViewMode", viewMode.ToString());
-            StateHasChanged();
-        }
-
-        await JS.InvokeVoidAsync("arcafs.registerFileKeys", InteropKey, dotNetRef);
+        registeredKey = InteropKey;
+        await JS.InvokeVoidAsync("arcafs.registerFileKeys", registeredKey, dotNetRef);
         await JS.InvokeVoidAsync(
-            "arcafsUploader.registerDropZone", InteropKey, listingElement, dotNetRef);
+            "arcafsUploader.registerDropZone", registeredKey, listingElement, dotNetRef);
+        await JS.InvokeVoidAsync("arcafs.registerItemDrag", registeredKey, browserElement, dotNetRef);
         jsHandlersRegistered = true;
     }
 
@@ -424,6 +491,7 @@
             Descending = descending,
             ShowHidden = showHidden,
             Filter = string.IsNullOrWhiteSpace(filter) ? null : filter,
+            Kind = kindFilter,
             PageSize = pageSize,
         });
 
@@ -513,7 +581,7 @@
         }
         else if (args.CtrlKey || args.MetaKey)
         {
-            ToggleSelect(item);
+            await ToggleSelect(item);
             rangeAnchorPath = item.Path;
         }
         else
@@ -551,12 +619,14 @@
         }
     }
 
-    private void ToggleSelect(FileSystemItemDto item)
+    private async Task ToggleSelect(FileSystemItemDto item)
     {
         if (!selection.Remove(item.Path))
         {
             selection.Add(item.Path);
         }
+
+        await LoadSelectedDetailAsync();
     }
 
     private void SelectAll(bool select)
@@ -668,6 +738,9 @@
 
     private async Task HandleActionAsync(FileAction action)
     {
+        // The toolbar can still see the last right-clicked folder after the menu has closed.
+        // Only a menu that is open right now names a destination.
+        bool fromMenu = contextMenuVisible;
         var item = contextMenuItem;
         contextMenuVisible = false;
 
@@ -702,7 +775,15 @@
                 break;
 
             case FileAction.Paste:
-                await PasteAsync();
+                await PasteAsync(fromMenu && item is { IsDirectory: true } ? item.Path : CurrentPath);
+                break;
+
+            case FileAction.Duplicate:
+                await DuplicateAsync();
+                break;
+
+            case FileAction.InvertSelection:
+                InvertSelection();
                 break;
 
             case FileAction.Delete:
@@ -835,9 +916,10 @@
 
         if (result.IsSuccess)
         {
+            RememberRename(path, currentName, result.Value);
             Toasts.Success($"Renamed to {result.Value.Name}.");
             selection.Clear();
-            await LoadAsync();
+            await RefreshAfterChangeAsync();
         }
         else
         {
@@ -860,38 +942,25 @@
         Toasts.Info($"{paths.Count} {(paths.Count == 1 ? "item" : "items")} ready to paste.");
     }
 
-    private async Task PasteAsync()
+    private async Task PasteAsync(string destinationPath)
     {
         if (clipboard is null || listing is null)
         {
             return;
         }
 
-        var result = await FileSystemService.TransferAsync(new TransferRequest
+        bool isCopy = !clipboard.IsCut;
+        string verb = isCopy ? "Copied" : "Moved";
+        var request = new TransferRequest
         {
             SourceId = clipboard.SourceId,
             Paths = clipboard.Paths.ToList(),
             DestinationSourceId = SourceId,
-            DestinationPath = CurrentPath,
-            IsCopy = !clipboard.IsCut,
-        });
+            DestinationPath = destinationPath,
+            IsCopy = isCopy,
+        };
 
-        if (!result.IsSuccess)
-        {
-            Toasts.Error(Describe(result, "Nothing could be pasted."));
-            return;
-        }
-
-        ShowBulk(result.Value, clipboard.IsCut ? "Moved" : "Copied");
-
-        // A cut is consumed by the paste; a copy stays on the clipboard so it can be pasted
-        // into several folders.
-        if (clipboard.IsCut)
-        {
-            clipboard = null;
-        }
-
-        await LoadAsync();
+        await TransferResolvedAsync(request, verb);
     }
 
     private async Task DeleteAsync()
@@ -935,7 +1004,7 @@
 
         ShowBulk(result.Value, "Deleted");
         selection.Clear();
-        await LoadAsync();
+        await RefreshAfterChangeAsync();
     }
 
     private async Task CreateFolderAsync()
@@ -956,8 +1025,9 @@
 
         if (result.IsSuccess)
         {
+            RememberCreate(result.Value, isDirectory: true);
             Toasts.Success($"Created {result.Value.Name}.");
-            await LoadAsync();
+            await RefreshAfterChangeAsync();
         }
         else
         {
@@ -987,8 +1057,10 @@
             return;
         }
 
+        History.Push(new CreateAction(SourceId, CurrentPath, result.Value.Name, false, result.Value.Path));
+
         // Straight into the editor, since creating an empty file is never the actual goal.
-        Navigation.NavigateTo($"/edit/{SourceId}{VirtualPath.Combine(CurrentPath, [name])}");
+        Navigation.NavigateTo($"/edit/{SourceId}{result.Value.Path}");
     }
 
     private async Task CompressAsync()
@@ -1025,7 +1097,7 @@
         {
             Toasts.Success($"Created {result.Value.Name}.");
             selection.Clear();
-            await LoadAsync();
+            await RefreshAfterChangeAsync();
         }
         else
         {
@@ -1035,16 +1107,40 @@
 
     private async Task ExtractAsync(FileSystemItemDto item)
     {
+        Result<IReadOnlyList<ExtractConflictDto>> conflicts = await ArchiveService.GetExtractConflictsAsync(
+            SourceId,
+            item.Path);
+
+        if (!conflicts.IsSuccess)
+        {
+            Toasts.Error(Describe(conflicts, "The archive could not be extracted."));
+            return;
+        }
+
+        List<ExtractNameChoice> choices = [];
+        if (conflicts.Value.Count > 0)
+        {
+            bool allowReplace = Can(FilePermission.Modify);
+            Dictionary<string, NameConflictChoice> decisions = await DecideConflictsAsync(
+                conflicts.Value
+                    .Select(conflict => new NameCollision(conflict.Name, conflict.Name, allowReplace && conflict.AllowReplace))
+                    .ToList());
+            choices = decisions
+                .Select(pair => new ExtractNameChoice(pair.Key, pair.Value))
+                .ToList();
+        }
+
         var result = await ArchiveService.ExtractAsync(new ExtractArchiveRequest
         {
             SourceId = SourceId,
             Path = item.Path,
+            NameChoices = choices,
         });
 
         if (result.IsSuccess)
         {
             ShowBulk(result.Value, "Extracted");
-            await LoadAsync();
+            await RefreshAfterChangeAsync();
         }
         else
         {
@@ -1107,9 +1203,22 @@
             return;
         }
 
+        if (combo == "ctrl+z")
+        {
+            await UndoAsync();
+            return;
+        }
+
+        if (combo is "ctrl+y" or "ctrl+shift+z")
+        {
+            await RedoAsync();
+            return;
+        }
+
         var action = combo switch
         {
             "ctrl+a" => FileAction.SelectAll,
+            "ctrl+shift+i" => FileAction.InvertSelection,
             "Delete" when Can(FilePermission.Delete) => FileAction.Delete,
             "F2" when Can(FilePermission.Rename) => FileAction.Rename,
             "ctrl+c" when Can(FilePermission.Download) => FileAction.Copy,
@@ -1139,28 +1248,10 @@
             return;
         }
 
-        // Overwrite is asked about once for the whole batch. Prompting per file would be
-        // unusable for the folder drops this is built to handle.
-        var existing = listing?.Items.Select(i => i.Name).ToHashSet(StringComparer.OrdinalIgnoreCase)
-            ?? [];
-
-        var collisions = files.Where(f => existing.Contains(f.Name)).ToList();
-        bool overwrite = false;
-
-        if (collisions.Count > 0)
-        {
-            overwrite = await Dialogs.ConfirmAsync(
-                "Replace files?",
-                collisions.Count == 1
-                    ? $"\"{collisions[0].Name}\" already exists here."
-                    : $"{collisions.Count} of these files already exist here.",
-                "Replace",
-                isDestructive: true,
-                detail: "Choose Cancel to skip the ones that already exist.");
-        }
+        List<UploadInstruction>? instructions = await PlanUploadsAsync(files);
 
         await JS.InvokeVoidAsync(
-            "arcafsUploader.uploadPending", SourceId, CurrentPath, overwrite, dotNetRef);
+            "arcafsUploader.uploadPending", SourceId, CurrentPath, instructions, dotNetRef);
     }
 
     [JSInvokable]
@@ -1203,6 +1294,11 @@
         int failed = uploads.Count(u => u.Error is not null);
         int succeeded = uploads.Count(u => u.Error is null);
 
+        if (failed == 0 && succeeded == 0)
+        {
+            return;
+        }
+
         if (failed == 0)
         {
             Toasts.Success($"Uploaded {succeeded} {(succeeded == 1 ? "file" : "files")}.");
@@ -1216,7 +1312,7 @@
             Toasts.Warning($"{failed} of {succeeded + failed} uploads failed.");
         }
 
-        await LoadAsync();
+        await RefreshAfterChangeAsync();
         StateHasChanged();
     }
 
@@ -1264,10 +1360,11 @@
         {
             // Prerender constructs and disposes this component with no circuit. Calling JS then
             // throws; only unregister handlers that an interactive render actually installed.
-            if (jsHandlersRegistered)
+            if (jsHandlersRegistered && registeredKey is not null)
             {
-                await JS.InvokeVoidAsync("arcafs.unregisterFileKeys", InteropKey);
-                await JS.InvokeVoidAsync("arcafsUploader.unregisterDropZone", InteropKey);
+                await JS.InvokeVoidAsync("arcafs.unregisterFileKeys", registeredKey);
+                await JS.InvokeVoidAsync("arcafs.unregisterItemDrag", registeredKey);
+                await JS.InvokeVoidAsync("arcafsUploader.unregisterDropZone", registeredKey);
             }
         }
         catch (Exception ex) when (

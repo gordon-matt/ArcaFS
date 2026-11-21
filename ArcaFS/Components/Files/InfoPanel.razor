@@ -2,102 +2,102 @@
 
 @* Right-hand details panel. Directory sizes are loaded on demand rather than with the listing,
    because walking a large tree takes long enough to stall the first paint. *@
-<aside class="border-start ps-3 ms-3" style="width: 20rem; flex: 0 0 20rem; overflow-y: auto;">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-        <h2 class="h6 mb-0">Details</h2>
-        <button type="button" class="btn btn-sm btn-link text-body p-0" aria-label="Close details"
-                @onclick="OnClose">
+<aside class="arca-info" aria-label="Details">
+    <div class="arca-info-header">
+        <span>Details</span>
+        <span class="arca-toolbar-spacer"></span>
+        <button type="button" class="arca-icon-button" aria-label="Close details" @onclick="OnClose">
             <i class="bi bi-x-lg"></i>
         </button>
     </div>
 
     @if (Detail is null)
     {
-        <p class="text-body-secondary small">Select an item to see its details.</p>
+        <div class="arca-info-body text-body-secondary">Select an item to see its details.</div>
     }
     else
     {
-        <div class="text-center mb-3">
-            @if (Detail.Kind == FileKind.Image)
-            {
-                <img class="img-fluid rounded" alt="@Detail.Name"
-                     src="@($"/api/files/thumb?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}&size=384&v={Detail.ModifiedAt.Ticks}")" />
-            }
-            else
-            {
-                <FileIcon Kind="Detail.Kind" CssClass="display-3" />
-            }
-        </div>
-
-        <h3 class="h6 text-break">@Detail.Name</h3>
-
-        <dl class="row small mb-3">
-            <dt class="col-5 text-body-secondary fw-normal">Type</dt>
-            <dd class="col-7 text-break">@Detail.MimeType</dd>
-
-            <dt class="col-5 text-body-secondary fw-normal">Size</dt>
-            <dd class="col-7">
-                @if (Detail.IsDirectory)
+        <div class="arca-info-body">
+            <div class="arca-info-preview @(Detail.Kind is FileKind.Image or FileKind.Video && !thumbFailed ? "arca-checkered" : null)">
+                @if (Detail.Kind is FileKind.Image or FileKind.Video && !thumbFailed)
                 {
-                    @if (directorySize is not null)
-                    {
-                        <span>@FormatBytes(directorySize.SizeBytes)</span>
-                        <div class="text-body-secondary">
-                            @directorySize.FileCount files, @directorySize.DirectoryCount folders
-                        </div>
-                    }
-                    else if (isCalculating)
-                    {
-                        <span class="spinner-border spinner-border-sm"></span>
-                    }
-                    else
-                    {
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                @onclick="CalculateSizeAsync">
-                            Calculate
-                        </button>
-                    }
+                    <img alt="" src="@($"/api/files/thumb?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}&size=384&v={Detail.ModifiedAt.Ticks}")"
+                         @onerror="() => thumbFailed = true" />
                 }
                 else
                 {
-                    @FormatBytes(Detail.SizeBytes)
+                    <FileIcon Kind="Detail.Kind" CssClass="display-4" />
                 }
-            </dd>
+            </div>
 
-            @if (Detail is { ImageWidth: int width, ImageHeight: int height })
-            {
-                <dt class="col-5 text-body-secondary fw-normal">Dimensions</dt>
-                <dd class="col-7">@width × @height</dd>
-            }
+            <p class="arca-info-name" title="@Detail.Name">@Detail.Name</p>
 
-            <dt class="col-5 text-body-secondary fw-normal">Modified</dt>
-            <dd class="col-7">@Detail.ModifiedAt.ToLocalTime().ToString("g")</dd>
+            <dl class="arca-info-list">
+                <dt>Type</dt>
+                <dd class="text-break">@(Detail.IsDirectory ? "Folder" : Detail.MimeType)</dd>
 
-            <dt class="col-5 text-body-secondary fw-normal">Created</dt>
-            <dd class="col-7">@Detail.CreatedAt.ToLocalTime().ToString("g")</dd>
+                <dt>Size</dt>
+                <dd>
+                    @if (Detail.IsDirectory)
+                    {
+                        @if (directorySize is not null)
+                        {
+                            <span>@FormatBytes(directorySize.SizeBytes)</span>
+                            <div class="text-body-secondary">
+                                @directorySize.FileCount files, @directorySize.DirectoryCount folders
+                            </div>
+                        }
+                        else if (isCalculating)
+                        {
+                            <span class="text-body-secondary">Calculating…</span>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-link btn-sm p-0" @onclick="CalculateSizeAsync">
+                                Calculate
+                            </button>
+                        }
+                    }
+                    else
+                    {
+                        @FormatBytes(Detail.SizeBytes)
+                    }
+                </dd>
 
-            <dt class="col-5 text-body-secondary fw-normal">Path</dt>
-            <dd class="col-7 text-break font-monospace" style="font-size: 0.75rem;">@Detail.Path</dd>
-        </dl>
+                @if (Detail is { ImageWidth: int width, ImageHeight: int height })
+                {
+                    <dt>Dimensions</dt>
+                    <dd>@width × @height</dd>
+                }
 
-        <h4 class="h6">Your access</h4>
-        <div class="d-flex flex-wrap gap-1 mb-3">
-            @foreach (string permission in Detail.Permissions.ToDisplayNames())
-            {
-                <span class="arca-perm-chip arca-perm-allow">@permission</span>
-            }
-            @if (Detail.Permissions == FilePermission.None)
-            {
-                <span class="arca-perm-chip arca-perm-deny">No access</span>
-            }
+                <dt>Modified</dt>
+                <dd>@Detail.ModifiedAt.ToLocalTime().ToString("g")</dd>
+
+                <dt>Created</dt>
+                <dd>@Detail.CreatedAt.ToLocalTime().ToString("g")</dd>
+
+                <dt>Path</dt>
+                <dd class="text-break font-monospace" style="font-size: 0.75rem;">@Detail.Path</dd>
+            </dl>
+
+            <div class="d-flex flex-wrap gap-1 mb-3">
+                @foreach (string permission in Detail.Permissions.ToDisplayNames())
+                {
+                    <span class="arca-perm-chip arca-perm-allow">@permission</span>
+                }
+                @if (Detail.Permissions == FilePermission.None)
+                {
+                    <span class="arca-perm-chip arca-perm-deny">No access</span>
+                }
+            </div>
+
+            <AuthorizeView Roles="@WellKnownRoles.Administrator">
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="@($"/admin/access?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}")">
+                    <i class="bi bi-shield-lock me-1"></i> Access rules
+                </a>
+            </AuthorizeView>
         </div>
-
-        <AuthorizeView Roles="@WellKnownRoles.Administrator">
-            <a class="btn btn-sm btn-outline-secondary"
-               href="@($"/admin/access?sourceId={Detail.SourceId}&path={Uri.EscapeDataString(Detail.Path)}")">
-                <i class="bi bi-shield-lock me-1"></i> Access rules
-            </a>
-        </AuthorizeView>
     }
 </aside>
 
@@ -110,6 +110,7 @@
 
     private DirectorySizeDto? directorySize;
     private bool isCalculating;
+    private bool thumbFailed;
     private string? lastLoadedPath;
 
     protected override void OnParametersSet()
@@ -120,6 +121,7 @@
             lastLoadedPath = Detail?.Path;
             directorySize = null;
             isCalculating = false;
+            thumbFailed = false;
         }
     }
 

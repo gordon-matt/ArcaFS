@@ -67,26 +67,58 @@ public sealed partial class FileSystemService
             target.Permissions.Has(FilePermission.Modify)));
     }
 
-    public async Task<Result> SaveTextAsync(
+    public async Task<Result<TextSaveDto>> SaveTextAsync(
         SaveTextFileRequest request,
         CancellationToken cancellationToken = default)
     {
-        var resolved = await permissionService.RequireAsync(
-            request.SourceId,
-            request.Path,
-            FilePermission.Modify,
-            cancellationToken);
-
-        if (!resolved.IsSuccess)
+        string normalized = VirtualPath.Normalize(request.Path);
+        if (normalized == Constants.RootPath)
         {
-            return resolved.ToVoid();
+            return Result<TextSaveDto>.Invalid(new ValidationError(
+                nameof(request.Path), "A source root cannot be a text file."));
         }
 
-        var target = resolved.Value;
+        // Browse first so a missing file still yields a physical path. Create and modify are
+        // checked after that, because a new file and an existing one are different grants.
+        Result<ResolvedPath> located = await permissionService.RequireAsync(
+            request.SourceId,
+            normalized,
+            FilePermission.Browse,
+            cancellationToken);
 
-        if (!File.Exists(target.PhysicalPath))
+        if (!located.IsSuccess)
         {
-            return Result.NotFound($"'{request.Path}' was not found.");
+            return located.To<TextSaveDto>();
+        }
+
+        ResolvedPath target = located.Value;
+        string? parentPhysical = Path.GetDirectoryName(target.PhysicalPath);
+        if (parentPhysical is null || !Directory.Exists(parentPhysical))
+        {
+            return Result<TextSaveDto>.NotFound("That folder was not found.");
+        }
+
+        if (Directory.Exists(target.PhysicalPath))
+        {
+            return Result<TextSaveDto>.Conflict($"'{Path.GetFileName(target.PhysicalPath)}' already exists here.");
+        }
+
+        bool exists = File.Exists(target.PhysicalPath);
+        Result<ResolvedPath> granted = await permissionService.RequireAsync(
+            request.SourceId,
+            normalized,
+            exists ? FilePermission.Modify : FilePermission.Create,
+            cancellationToken);
+
+        if (!granted.IsSuccess)
+        {
+            return granted.To<TextSaveDto>();
+        }
+
+        if (exists && WasChangedSince(target.PhysicalPath, request.ExpectedModifiedAt))
+        {
+            return Result<TextSaveDto>.Conflict(
+                "This file was changed by someone else after you opened it. Reload it before saving.");
         }
 
         try
@@ -101,19 +133,38 @@ public sealed partial class FileSystemService
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             logger.LogError(ex, "Could not save text to {Physical}", target.PhysicalPath);
-            return Result.Error("That file could not be saved.");
+            return Result<TextSaveDto>.Error("That file could not be saved.");
         }
 
+        var written = new FileInfo(target.PhysicalPath);
         await activityService.RecordAsync(
-            ActivityKind.Modify,
+            exists ? ActivityKind.Modify : ActivityKind.Create,
             request.SourceId,
             target.ScopedVirtualPath,
-            sizeBytes: Encoding.UTF8.GetByteCount(request.Content),
+            sizeBytes: written.Length,
             cancellationToken: cancellationToken);
 
         await InvalidateIndexAsync(request.SourceId, target.AbsoluteVirtualPath, cancellationToken);
 
-        return Result.Success();
+        return Result<TextSaveDto>.Success(new TextSaveDto(
+            target.ScopedVirtualPath,
+            written.Name,
+            written.LastWriteTimeUtc));
+    }
+
+    /// <summary>
+    /// True when the file's modified time is not the one the editor opened. A millisecond of
+    /// slack covers filesystems that do not store sub-millisecond stamps.
+    /// </summary>
+    internal static bool WasChangedSince(string physicalPath, DateTime? expectedModifiedAt)
+    {
+        if (expectedModifiedAt is not { } expected || !File.Exists(physicalPath))
+        {
+            return false;
+        }
+
+        DateTime actual = File.GetLastWriteTimeUtc(physicalPath);
+        return Math.Abs((actual - expected.ToUniversalTime()).TotalMilliseconds) > 1;
     }
 
     public async Task<Result<FileDownloadDto>> OpenReadAsync(
@@ -464,17 +515,20 @@ public sealed partial class FileSystemService
             return Result<UploadResultDto>.Error($"'{name}' could not be saved.");
         }
 
+        await imageResizer.TryShrinkAsync(finalPath, name, cancellationToken);
+        long storedBytes = new FileInfo(finalPath).Length;
+
         await activityService.RecordAsync(
             ActivityKind.Upload,
             request.SourceId,
             virtualPath,
-            sizeBytes: received,
+            sizeBytes: storedBytes,
             cancellationToken: cancellationToken);
 
         await InvalidateIndexAsync(request.SourceId, target.AbsoluteVirtualPath, cancellationToken);
 
         return Result<UploadResultDto>.Success(
-            new UploadResultDto(virtualPath, name, received, IsComplete: true));
+            new UploadResultDto(virtualPath, name, storedBytes, IsComplete: true));
     }
 
     /// <summary>

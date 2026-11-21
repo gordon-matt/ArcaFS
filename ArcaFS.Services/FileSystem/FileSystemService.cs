@@ -1,3 +1,6 @@
+using ArcaFS.Services.Thumbnails;
+using ArcaFS.Services.Uploads;
+
 namespace ArcaFS.Services.FileSystem;
 
 /// <summary>
@@ -10,7 +13,9 @@ public sealed partial class FileSystemService(
     ILogger<FileSystemService> logger,
     IPermissionService permissionService,
     IActivityService activityService,
-    IRepository<IndexedItem> indexRepository) : IFileSystemService
+    IRepository<IndexedItem> indexRepository,
+    ImageResizer imageResizer,
+    IVideoThumbnailGate videoThumbnails) : IFileSystemService
 {
     /// <summary>
     /// Ceiling on files opened in the text editor. Large enough for any config or log excerpt,
@@ -90,7 +95,7 @@ public sealed partial class FileSystemService(
                     continue;
                 }
 
-                var item = ToItem(entry, scopedChild, childPermissions);
+                var item = ToItem(entry, scopedChild, childPermissions, videoThumbnails.IsAvailable);
                 items.Add(item);
                 totalSize += item.SizeBytes;
             }
@@ -113,7 +118,7 @@ public sealed partial class FileSystemService(
             return Result<DirectoryListingDto>.Error("That folder could not be read.");
         }
 
-        var filtered = ApplyFilter(items, request.Filter);
+        var filtered = ApplyKind(ApplyFilter(items, request.Filter), request.Kind);
         int totalCount = filtered.Count;
 
         var page = Sort(filtered, request.SortBy, request.Descending)
@@ -267,11 +272,13 @@ public sealed partial class FileSystemService(
     private static FileSystemItemDto ToItem(
         FileSystemInfo entry,
         string virtualPath,
-        FilePermission permissions)
+        FilePermission permissions,
+        bool videoThumbnails = false)
     {
         bool isDirectory = entry is DirectoryInfo;
         long size = entry is FileInfo file ? file.Length : 0;
         var kind = FileKinds.Classify(entry.Name, isDirectory);
+        bool canRead = permissions.Has(FilePermission.Read);
 
         return new FileSystemItemDto(
             entry.Name,
@@ -284,7 +291,7 @@ public sealed partial class FileSystemService(
             IsHidden(entry),
             entry.LinkTarget is not null,
             ChildCount: null,
-            HasThumbnail: kind == FileKind.Image && permissions.Has(FilePermission.Read));
+            HasThumbnail: canRead && (kind == FileKind.Image || (kind == FileKind.Video && videoThumbnails)));
     }
 
     private static bool IsHidden(FileSystemInfo entry) =>
@@ -308,6 +315,18 @@ public sealed partial class FileSystemService(
         string term = filter.Trim();
         return items
             .Where(i => i.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private static List<FileSystemItemDto> ApplyKind(List<FileSystemItemDto> items, KindFilter kind)
+    {
+        if (kind == KindFilter.All)
+        {
+            return items;
+        }
+
+        return items
+            .Where(item => item.IsDirectory || FileKinds.Matches(item.Kind, kind))
             .ToList();
     }
 

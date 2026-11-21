@@ -19,7 +19,16 @@ window.arcafsUploader = {
 
         var depth = 0;
 
+        var isInternalDrag = function (e) {
+            var types = e.dataTransfer && e.dataTransfer.types;
+            return types && Array.prototype.indexOf.call(types, 'application/x-arcafs-items') >= 0;
+        };
+
         var onDragEnter = function (e) {
+            if (isInternalDrag(e)) {
+                return;
+            }
+
             e.preventDefault();
 
             // dragenter/dragleave fire for descendants too, so a counter is needed or the
@@ -31,11 +40,19 @@ window.arcafsUploader = {
         };
 
         var onDragOver = function (e) {
+            if (isInternalDrag(e)) {
+                return;
+            }
+
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
         };
 
         var onDragLeave = function (e) {
+            if (isInternalDrag(e)) {
+                return;
+            }
+
             e.preventDefault();
             depth = Math.max(0, depth - 1);
             if (depth === 0) {
@@ -44,6 +61,10 @@ window.arcafsUploader = {
         };
 
         var onDrop = async function (e) {
+            if (isInternalDrag(e)) {
+                return;
+            }
+
             e.preventDefault();
             depth = 0;
             element.classList.remove('arca-drop-active');
@@ -113,16 +134,41 @@ window.arcafsUploader = {
      * @param {boolean} overwrite Whether the server may replace existing files.
      * @param {object} dotNetRef Receives OnUploadProgress / OnUploadComplete.
      */
-    uploadPending: async function (sourceId, path, overwrite, dotNetRef) {
+    uploadPending: async function (sourceId, path, instructions, dotNetRef) {
         var entries = this._pending || [];
         this._pending = [];
 
+        var pending = new Map();
         for (var i = 0; i < entries.length; i++) {
-            var entry = entries[i];
+            var stored = entries[i];
+            pending.set(stored.path || stored.file.name, stored);
+        }
+
+        var jobs = instructions;
+        if (!jobs) {
+            jobs = entries.map(function (entry) {
+                return {
+                    relativePath: entry.path || entry.file.name,
+                    overwrite: false,
+                    targetRelativePath: null,
+                    targetFileName: null
+                };
+            });
+        }
+
+        for (var j = 0; j < jobs.length; j++) {
+            var job = jobs[j];
+            var entry = pending.get(job.relativePath);
+            if (!entry) {
+                continue;
+            }
+
             var uploadId = this._nextId++;
+            var relative = job.targetRelativePath || job.relativePath;
 
             try {
-                await this._uploadOne(uploadId, sourceId, path, entry, overwrite, dotNetRef);
+                await this._uploadOne(
+                    uploadId, sourceId, path, entry, !!job.overwrite, relative, job.targetFileName || '', dotNetRef);
                 await dotNetRef.invokeMethodAsync('OnUploadComplete', uploadId, entry.file.name, true, null);
             } catch (error) {
                 await dotNetRef.invokeMethodAsync(
@@ -141,12 +187,18 @@ window.arcafsUploader = {
         }
     },
 
-    _uploadOne: function (uploadId, sourceId, path, entry, overwrite, dotNetRef) {
+    _uploadOne: function (uploadId, sourceId, path, entry, overwrite, relativePath, targetFileName, dotNetRef) {
         var form = new FormData();
         form.append('file', entry.file, entry.file.name);
         form.append('sourceId', String(sourceId));
         form.append('path', path);
-        form.append('relativePath', entry.path || entry.file.name);
+        form.append('relativePath', relativePath || entry.path || entry.file.name);
+        if (targetFileName) {
+            form.append('targetFileName', targetFileName);
+        }
+        if (relativePath) {
+            form.append('targetRelativePath', relativePath);
+        }
         form.append('overwrite', overwrite ? 'true' : 'false');
 
         return this._send('/api/files/upload', form, uploadId, entry, dotNetRef);
