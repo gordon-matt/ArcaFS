@@ -11,6 +11,9 @@ RUN mkdir -p /app/data/files /app/data/db /app/data/logs /app/data/thumbnails \
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+# Package versions live in Directory.Packages.props. Restore cannot see them
+# until this file is in the image, and the project files no longer repeat them.
+COPY ["Directory.Packages.props", "Directory.Build.props", "./"]
 COPY ["ArcaFS/ArcaFS.csproj", "ArcaFS/"]
 COPY ["ArcaFS.Core/ArcaFS.Core.csproj", "ArcaFS.Core/"]
 COPY ["ArcaFS.Data/ArcaFS.Data.csproj", "ArcaFS.Data/"]
