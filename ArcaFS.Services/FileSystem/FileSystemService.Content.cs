@@ -5,6 +5,7 @@ namespace ArcaFS.Services.FileSystem;
 
 public sealed partial class FileSystemService
 {
+    /// <inheritdoc />
     public async Task<Result<TextFileContentDto>> ReadTextAsync(
         int sourceId,
         string path,
@@ -67,6 +68,7 @@ public sealed partial class FileSystemService
             target.Permissions.Has(FilePermission.Modify)));
     }
 
+    /// <inheritdoc />
     public async Task<Result<TextSaveDto>> SaveTextAsync(
         SaveTextFileRequest request,
         CancellationToken cancellationToken = default)
@@ -167,6 +169,7 @@ public sealed partial class FileSystemService
         return Math.Abs((actual - expected.ToUniversalTime()).TotalMilliseconds) > 1;
     }
 
+    /// <inheritdoc />
     public async Task<Result<FileDownloadDto>> OpenReadAsync(
         int sourceId,
         string path,
@@ -237,6 +240,7 @@ public sealed partial class FileSystemService
             BuildETag(info)));
     }
 
+    /// <inheritdoc />
     public async Task<Result> WriteZipAsync(
         int sourceId,
         IReadOnlyList<string> paths,
@@ -416,6 +420,7 @@ public sealed partial class FileSystemService
         }
     }
 
+    /// <inheritdoc />
     public async Task<Result<UploadResultDto>> UploadAsync(
         UploadRequest request,
         AccessPrincipal? principal = null,

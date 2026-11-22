@@ -5,6 +5,7 @@ using SharpCompress.Writers;
 
 namespace ArcaFS.Services.Archives;
 
+/// <inheritdoc cref="IArchiveService" />
 public sealed class ArchiveService(
     ILogger<ArchiveService> logger,
     IPermissionService permissionService,
@@ -24,6 +25,7 @@ public sealed class ArchiveService(
     /// </summary>
     private const int MaxExtractedEntries = 200_000;
 
+    /// <inheritdoc />
     public async Task<Result<FileSystemItemDto>> CreateAsync(
         CreateArchiveRequest request,
         CancellationToken cancellationToken = default)
@@ -136,6 +138,7 @@ public sealed class ArchiveService(
             false));
     }
 
+    /// <inheritdoc />
     public async Task<Result<BulkOperationResultDto>> ExtractAsync(
         ExtractArchiveRequest request,
         CancellationToken cancellationToken = default)
@@ -256,6 +259,7 @@ public sealed class ArchiveService(
         return Result<BulkOperationResultDto>.Success(BulkOperationResultDto.From(results));
     }
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<ExtractConflictDto>>> GetExtractConflictsAsync(
         int sourceId,
         string path,
@@ -304,6 +308,7 @@ public sealed class ArchiveService(
         return Result<IReadOnlyList<ExtractConflictDto>>.Success(conflicts);
     }
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<ArchiveEntryDto>>> ListEntriesAsync(
         int sourceId,
         string path,

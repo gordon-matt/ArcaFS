@@ -2,6 +2,7 @@ using Hangfire;
 
 namespace ArcaFS.Services.Indexing;
 
+/// <inheritdoc cref="IIndexService" />
 public sealed class IndexService(
     ILogger<IndexService> logger,
     IUserContextService userContext,
@@ -17,6 +18,7 @@ public sealed class IndexService(
     /// </summary>
     private const int BatchSize = 500;
 
+    /// <inheritdoc />
     public async Task<Result> RequestScanAsync(int sourceId, CancellationToken cancellationToken = default)
     {
         if (!userContext.IsAdministrator())
@@ -53,6 +55,7 @@ public sealed class IndexService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task ScanAllDueAsync(CancellationToken cancellationToken = default)
     {
         var sources = await sourceRepository.FindAsync(new SearchOptions<Source>
@@ -96,6 +99,7 @@ public sealed class IndexService(
         }
     }
 
+    /// <inheritdoc />
     public async Task<Result<IndexScanResultDto>> ScanSourceAsync(
         int sourceId,
         CancellationToken cancellationToken = default)

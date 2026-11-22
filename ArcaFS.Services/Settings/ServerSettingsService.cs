@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace ArcaFS.Services.Settings;
 
+/// <inheritdoc cref="IServerSettingsService" />
 public sealed class ServerSettingsService(
     ILogger<ServerSettingsService> logger,
     IUserContextService userContext,
@@ -18,12 +19,14 @@ public sealed class ServerSettingsService(
     /// </summary>
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(10);
 
+    /// <inheritdoc />
     public async Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
     {
         var all = await LoadAsync(cancellationToken);
         return all.GetValueOrDefault(key);
     }
 
+    /// <inheritdoc />
     public async Task<T> GetAsync<T>(string key, T fallback, CancellationToken cancellationToken = default)
     {
         string? raw = await GetAsync(key, cancellationToken);
@@ -54,6 +57,7 @@ public sealed class ServerSettingsService(
         }
     }
 
+    /// <inheritdoc />
     public async Task SetAsync(string key, string? value, CancellationToken cancellationToken = default)
     {
         var existing = await repository.FindOneAsync(new SearchOptions<ServerSetting>
@@ -81,6 +85,7 @@ public sealed class ServerSettingsService(
         cache.Remove(CacheKey);
     }
 
+    /// <inheritdoc />
     public async Task<ServerSettingsDto> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var all = await LoadAsync(cancellationToken);
@@ -103,6 +108,7 @@ public sealed class ServerSettingsService(
         };
     }
 
+    /// <inheritdoc />
     public async Task<Result> SaveAsync(
         ServerSettingsDto settings,
         CancellationToken cancellationToken = default)
@@ -144,9 +150,11 @@ public sealed class ServerSettingsService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<bool> IsSetupCompleteAsync(CancellationToken cancellationToken = default) =>
         ParseBool(await GetAsync(Constants.ServerSettingKeys.SetupComplete, cancellationToken));
 
+    /// <inheritdoc />
     public Task MarkSetupCompleteAsync(CancellationToken cancellationToken = default) =>
         SetAsync(Constants.ServerSettingKeys.SetupComplete, bool.TrueString, cancellationToken);
 

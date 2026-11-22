@@ -1,6 +1,11 @@
 namespace ArcaFS.Models;
 
 /// <summary>Minimal identity projection, shared by every auth mode.</summary>
+/// <param name="Id">User id. Ordinal comparison is used when these values are keyed.</param>
+/// <param name="UserName">Login name, or <see langword="null"/> when the provider did not send one.</param>
+/// <param name="Email">Email, or <see langword="null"/>.</param>
+/// <param name="DisplayName">Friendly name, or <see langword="null"/>.</param>
+/// <param name="Roles">Role names. Keycloak listings leave this empty.</param>
 public record UserInfo(
     string Id,
     string? UserName,
@@ -8,10 +13,16 @@ public record UserInfo(
     string? DisplayName,
     IReadOnlyList<string> Roles)
 {
+    /// <summary>
+    /// Display name, then user name, then email, then id. The first of those that is not blank.
+    /// </summary>
     public string Label => !string.IsNullOrWhiteSpace(DisplayName)
         ? DisplayName
         : UserName ?? Email ?? Id;
 
+    /// <summary>
+    /// Whether <see cref="Roles"/> contains the administrator role, compared ignoring case.
+    /// </summary>
     public bool IsAdministrator => Roles.Contains(WellKnownRoles.Administrator, StringComparer.OrdinalIgnoreCase);
 }
 

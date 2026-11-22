@@ -7,8 +7,13 @@ namespace ArcaFS.Services.Access;
 /// </summary>
 public sealed record AccessPrincipal
 {
+    /// <summary>
+    /// User id, or <see cref="Constants.AnonymousUserId"/> for <see cref="Anonymous"/>. A signed-in
+    /// caller with no id falls back to their user name.
+    /// </summary>
     public string? UserId { get; init; }
 
+    /// <summary>Login name. <see langword="null"/> for <see cref="Anonymous"/>.</summary>
     public string? UserName { get; init; }
 
     /// <summary>
@@ -23,13 +28,17 @@ public sealed record AccessPrincipal
     public string? FolderName =>
         !string.IsNullOrWhiteSpace(DisplayName) ? DisplayName : UserName;
 
+    /// <summary>Whether this principal came from a signed-in identity.</summary>
     public bool IsAuthenticated { get; init; }
 
+    /// <summary>Whether this principal is an administrator. Anonymous is not.</summary>
     public bool IsAdministrator { get; init; }
 
+    /// <summary>Role names, compared ordinal and case-insensitive. Empty for anonymous.</summary>
     public IReadOnlySet<string> RoleNames { get; init; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Access-group ids this user belongs to. Empty when there is no user id to look up.</summary>
     public IReadOnlySet<int> GroupIds { get; init; } = new HashSet<int>();
 
     /// <summary>

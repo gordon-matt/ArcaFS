@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace ArcaFS.Services.Shares;
 
+/// <inheritdoc cref="IShareService" />
 public sealed class ShareService(
     ILogger<ShareService> logger,
     IUserContextService userContext,
@@ -27,6 +28,7 @@ public sealed class ShareService(
 
     private static readonly object PasswordHashUser = new();
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<ShareDto>>> ListAsync(
         CancellationToken cancellationToken = default)
     {
@@ -59,6 +61,7 @@ public sealed class ShareService(
         return Result<IReadOnlyList<ShareDto>>.Success(dtos);
     }
 
+    /// <inheritdoc />
     public async Task<Result<ShareDto>> CreateAsync(
         CreateShareRequest request,
         CancellationToken cancellationToken = default)
@@ -145,6 +148,7 @@ public sealed class ShareService(
         return Result<ShareDto>.Success(ToDto(created, userContext.GetCurrentUserName()));
     }
 
+    /// <inheritdoc />
     public async Task<Result<ShareDto>> UpdateAsync(
         UpdateShareRequest request,
         CancellationToken cancellationToken = default)
@@ -204,6 +208,7 @@ public sealed class ShareService(
         return Result<ShareDto>.Success(ToDto(share, userContext.GetCurrentUserName()));
     }
 
+    /// <inheritdoc />
     public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var found = await FindOwnedAsync(id, cancellationToken);
@@ -222,6 +227,7 @@ public sealed class ShareService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result<PublicShareInfoDto>> GetPublicInfoAsync(
         string token,
         CancellationToken cancellationToken = default)
@@ -272,6 +278,7 @@ public sealed class ShareService(
             share.ExpiresAt));
     }
 
+    /// <inheritdoc />
     public async Task<Result<ShareSession>> AuthorizeAsync(
         string token,
         string? password,
@@ -342,6 +349,7 @@ public sealed class ShareService(
         });
     }
 
+    /// <inheritdoc />
     public async Task<Result> RecordDownloadAsync(
         string token,
         CancellationToken cancellationToken = default)

@@ -8,6 +8,7 @@ public sealed class AspNetIdentityUserInfoService(
     ILogger<AspNetIdentityUserInfoService> logger,
     IDbContextFactory dbContextFactory) : IUserInfoService
 {
+    /// <inheritdoc />
     public async Task<IReadOnlyDictionary<string, UserInfo>> GetUserInfoAsync(
         IEnumerable<string> userIds,
         CancellationToken cancellationToken = default)
@@ -22,9 +23,11 @@ public sealed class AspNetIdentityUserInfoService(
         return users.ToDictionary(u => u.Id, StringComparer.Ordinal);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<UserInfo>> GetAllUsersAsync(CancellationToken cancellationToken = default) =>
         await LoadAsync(predicate: null, cancellationToken);
 
+    /// <inheritdoc />
     public async Task<UserInfo?> GetUserAsync(string userId, CancellationToken cancellationToken = default)
     {
         var users = await LoadAsync(u => u.Id == userId, cancellationToken);

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace ArcaFS.Services.Setup;
 
+/// <inheritdoc cref="ISetupService" />
 public sealed class SetupService(
     ILogger<SetupService> logger,
     IServiceProvider serviceProvider,
@@ -15,6 +16,7 @@ public sealed class SetupService(
     IOptions<HostBrowseOptions> browseOptions,
     string databaseProviderName) : ISetupService
 {
+    /// <inheritdoc />
     public async Task<SetupStateDto> GetStateAsync(CancellationToken cancellationToken = default)
     {
         bool isComplete = await settingsService.IsSetupCompleteAsync(cancellationToken);
@@ -28,6 +30,7 @@ public sealed class SetupService(
             databaseProviderName);
     }
 
+    /// <inheritdoc />
     public async Task<Result> CreateAdministratorAsync(
         SetupAdminRequest request,
         CancellationToken cancellationToken = default)
@@ -100,6 +103,7 @@ public sealed class SetupService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result<SourceDto>> CreateFirstSourceAsync(
         SetupSourceRequest request,
         CancellationToken cancellationToken = default)
@@ -200,6 +204,7 @@ public sealed class SetupService(
             true));
     }
 
+    /// <inheritdoc />
     public async Task<Result> CompleteAsync(CancellationToken cancellationToken = default)
     {
         var gate = await EnsureSetupWindowAsync(cancellationToken);
@@ -215,6 +220,7 @@ public sealed class SetupService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result<HostDirectoryListingDto>> BrowseHostDirectoriesAsync(
         string? path,
         CancellationToken cancellationToken = default)

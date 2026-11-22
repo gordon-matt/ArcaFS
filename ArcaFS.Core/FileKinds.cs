@@ -171,18 +171,24 @@ public static class FileKinds
         [".js"] = "text/javascript",
     };
 
+    /// <summary>The content type used when an extension is missing or not in the map.</summary>
     public const string DefaultMimeType = "application/octet-stream";
 
     /// <summary>
     /// Text-ish kinds the in-browser editor will open. Everything else is treated as binary
     /// even when it happens to be readable, so we don't corrupt a file by saving it as UTF-8.
     /// </summary>
+    /// <param name="kind">Classification to test.</param>
+    /// <returns><see langword="true"/> for text and code.</returns>
     public static bool IsEditable(FileKind kind) => kind is FileKind.Text or FileKind.Code;
 
     /// <summary>
     /// Whether <paramref name="kind"/> belongs in a folder listing filtered by <paramref name="filter"/>.
     /// Folders are decided by the caller: a type chip still has to let the user open a directory.
     /// </summary>
+    /// <param name="kind">Classification of the item.</param>
+    /// <param name="filter">Chip the listing is filtered by. <see cref="KindFilter.All"/> matches every kind.</param>
+    /// <returns><see langword="true"/> when the kind belongs on that chip.</returns>
     public static bool Matches(FileKind kind, KindFilter filter) => filter switch
     {
         KindFilter.Images => kind == FileKind.Image,
@@ -194,6 +200,10 @@ public static class FileKinds
     };
 
     /// <summary>Kinds the in-app viewer can show, whether in a dialog or on a page.</summary>
+    /// <param name="kind">Classification to test.</param>
+    /// <returns>
+    /// <see langword="true"/> for an image, video, audio, PDF, text, or code file.
+    /// </returns>
     public static bool CanPreview(FileKind kind) => kind is
         FileKind.Image or FileKind.Video or FileKind.Audio or FileKind.Pdf
         or FileKind.Text or FileKind.Code;
@@ -207,6 +217,11 @@ public static class FileKinds
     /// anything unrecognised are always sent as attachments. Only media the browser decodes
     /// rather than executes, plus PDF, is listed.
     /// </remarks>
+    /// <param name="mimeType">
+    /// Content type to test. <see langword="null"/>, empty, SVG, HTML, and anything else not on
+    /// the allow-list are not inline-safe.
+    /// </param>
+    /// <returns><see langword="true"/> when the response may use inline disposition.</returns>
     public static bool IsInlineSafe(string? mimeType) => !string.IsNullOrEmpty(mimeType) && !mimeType.Equals("image/svg+xml", StringComparison.OrdinalIgnoreCase) && (mimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
             || mimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
             || mimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase)
@@ -217,6 +232,8 @@ public static class FileKinds
     /// Syntax-highlighting mode name for the in-browser editor, keyed off the extension.
     /// Unknown extensions fall back to plain text rather than guessing.
     /// </summary>
+    /// <param name="fileName">File name or path. Only the extension is used, compared ignoring case.</param>
+    /// <returns>A mode name, or <c>plaintext</c> when the extension is unknown.</returns>
     public static string GetEditorLanguage(string fileName) =>
         Path.GetExtension(fileName).ToLowerInvariant() switch
         {
@@ -248,6 +265,13 @@ public static class FileKinds
             _ => "plaintext",
         };
 
+    /// <summary>
+    /// Classification from the extension. A directory is always a folder. A missing or unknown
+    /// extension is <see cref="FileKind.Other"/>. The extension is compared ignoring case.
+    /// </summary>
+    /// <param name="fileName">File or directory name. Only the extension is used for a file.</param>
+    /// <param name="isDirectory">When <see langword="true"/>, the name is ignored and the result is a folder.</param>
+    /// <returns>The kind.</returns>
     public static FileKind Classify(string fileName, bool isDirectory)
     {
         if (isDirectory)
@@ -261,6 +285,12 @@ public static class FileKinds
             : KindByExtension.GetValueOrDefault(extension, FileKind.Other);
     }
 
+    /// <summary>
+    /// Content type for a file name. A missing or unknown extension is
+    /// <see cref="DefaultMimeType"/>. The extension is compared ignoring case.
+    /// </summary>
+    /// <param name="fileName">File name or path. Only the extension is used.</param>
+    /// <returns>The content type.</returns>
     public static string GetMimeType(string fileName)
     {
         string extension = Path.GetExtension(fileName);
@@ -270,6 +300,8 @@ public static class FileKinds
     }
 
     /// <summary>Bootstrap Icons class for an item, used by the listing and breadcrumbs.</summary>
+    /// <param name="kind">Classification to pick an icon for. Anything else uses the generic file icon.</param>
+    /// <returns>A Bootstrap Icons class, such as <c>bi-folder-fill</c>.</returns>
     public static string GetIcon(FileKind kind) => kind switch
     {
         FileKind.Folder => "bi-folder-fill",
@@ -286,6 +318,8 @@ public static class FileKinds
     };
 
     /// <summary>Formats a byte count for display (1 KB = 1024 B).</summary>
+    /// <param name="bytes">Size in bytes. A negative value is shown as a dash.</param>
+    /// <returns>The size with a unit. Bytes are exact; larger units keep up to two decimal places.</returns>
     public static string FormatSize(long bytes)
     {
         if (bytes < 0)

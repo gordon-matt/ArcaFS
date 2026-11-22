@@ -15,6 +15,7 @@ public sealed class AdminIdentityUserManagementService(
     IRepository<AccessGroupMember> memberRepository,
     IPermissionService permissionService) : IAdminUserManagementService
 {
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<AdminUserListItem>>> ListUsersAsync(
         CancellationToken cancellationToken = default)
     {
@@ -53,6 +54,7 @@ public sealed class AdminIdentityUserManagementService(
         return Result<IReadOnlyList<AdminUserListItem>>.Success(items);
     }
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<RoleOption>>> GetAssignableRolesAsync(
         CancellationToken cancellationToken = default)
     {
@@ -70,6 +72,7 @@ public sealed class AdminIdentityUserManagementService(
         return Result<IReadOnlyList<RoleOption>>.Success(roles);
     }
 
+    /// <inheritdoc />
     public async Task<Result> CreateUserAsync(
         AdminCreateUserRequest request,
         CancellationToken cancellationToken = default)
@@ -124,6 +127,7 @@ public sealed class AdminIdentityUserManagementService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result> UpdateUserAsync(
         string userId,
         AdminUpdateUserRequest request,
@@ -201,6 +205,7 @@ public sealed class AdminIdentityUserManagementService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result> ToggleLockoutAsync(
         string userId,
         CancellationToken cancellationToken = default)
@@ -238,6 +243,7 @@ public sealed class AdminIdentityUserManagementService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result> DeleteUserAsync(
         string userId,
         CancellationToken cancellationToken = default)

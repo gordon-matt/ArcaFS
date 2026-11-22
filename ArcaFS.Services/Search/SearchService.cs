@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 
 namespace ArcaFS.Services.Search;
 
+/// <inheritdoc cref="ISearchService" />
 public sealed class SearchService(
     ILogger<SearchService> logger,
     IPermissionService permissionService,
@@ -15,6 +16,7 @@ public sealed class SearchService(
     /// </summary>
     private const int MaxCandidates = 5_000;
 
+    /// <inheritdoc />
     public async Task<Result<SearchResultsDto>> SearchAsync(
         SearchRequest request,
         CancellationToken cancellationToken = default)
@@ -95,6 +97,7 @@ public sealed class SearchService(
             warning));
     }
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<DuplicateGroupDto>>> FindDuplicatesAsync(
         int sourceId,
         string path,
@@ -185,6 +188,7 @@ public sealed class SearchService(
         return Result<IReadOnlyList<DuplicateGroupDto>>.Success(ordered);
     }
 
+    /// <inheritdoc />
     public async Task<Result<DiskUsageDto>> GetDiskUsageAsync(
         int sourceId,
         string path,

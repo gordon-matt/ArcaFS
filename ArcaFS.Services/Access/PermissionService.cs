@@ -29,6 +29,7 @@ public sealed class PermissionService(
     private readonly SemaphoreSlim principalLock = new(1, 1);
     private readonly SemaphoreSlim accessibleSourcesLock = new(1, 1);
 
+    /// <inheritdoc />
     public async Task<AccessPrincipal> GetCurrentPrincipalAsync(CancellationToken cancellationToken = default)
     {
         if (currentPrincipal is not null)
@@ -94,6 +95,7 @@ public sealed class PermissionService(
         };
     }
 
+    /// <inheritdoc />
     public async Task<FilePermission> GetPermissionsAsync(
         int sourceId,
         string virtualPath,
@@ -113,6 +115,7 @@ public sealed class PermissionService(
         return PermissionResolver.Resolve(source, rules, principal, absolute).Effective;
     }
 
+    /// <inheritdoc />
     public async Task<Result<ResolvedPath>> RequireAsync(
         int sourceId,
         string virtualPath,
@@ -123,6 +126,7 @@ public sealed class PermissionService(
         return await RequireAsync(sourceId, virtualPath, required, principal, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<Result<ResolvedPath>> RequireAsync(
         int sourceId,
         string virtualPath,
@@ -193,6 +197,7 @@ public sealed class PermissionService(
         });
     }
 
+    /// <inheritdoc />
     public async Task<Func<string, FilePermission>> GetChildPermissionEvaluatorAsync(
         int sourceId,
         string directoryVirtualPath,
@@ -231,6 +236,7 @@ public sealed class PermissionService(
         };
     }
 
+    /// <inheritdoc />
     public async Task<Result<EffectivePermissionsDto>> ExplainAsync(
         EffectivePermissionsRequest request,
         CancellationToken cancellationToken = default)
@@ -279,6 +285,7 @@ public sealed class PermissionService(
                 .ToList()));
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<SourceSummaryDto>> GetAccessibleSourcesAsync(
         CancellationToken cancellationToken = default)
     {
@@ -335,6 +342,7 @@ public sealed class PermissionService(
         }
     }
 
+    /// <inheritdoc />
     public void InvalidateSource(int sourceId)
     {
         cache.Remove(RulesCacheKey(sourceId));

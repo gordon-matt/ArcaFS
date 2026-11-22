@@ -21,6 +21,10 @@ public static class VirtualPath
     /// resolved. <c>..</c> can never climb above the root — it is discarded at depth zero, so
     /// the result is always inside the source.
     /// </summary>
+    /// <param name="path">
+    /// Caller-supplied path. <see langword="null"/>, empty, or only dots and slashes becomes <c>/</c>.
+    /// </param>
+    /// <returns>The canonical virtual path.</returns>
     public static string Normalize(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -57,6 +61,8 @@ public static class VirtualPath
     }
 
     /// <summary>Number of segments below the root. <c>/</c> is 0, <c>/a/b</c> is 2.</summary>
+    /// <param name="normalizedPath">A path already passed through <see cref="Normalize"/>.</param>
+    /// <returns>The segment count.</returns>
     public static int Depth(string normalizedPath) =>
         normalizedPath == Constants.RootPath
             ? 0
@@ -66,12 +72,16 @@ public static class VirtualPath
     /// The individual segments of a normalized path, root first. Returns an empty array for the
     /// root. Backs breadcrumb construction and index depth bookkeeping.
     /// </summary>
+    /// <param name="normalizedPath">A path already passed through <see cref="Normalize"/>.</param>
+    /// <returns>The segments, or an empty array for the root.</returns>
     public static string[] GetSegments(string normalizedPath) =>
         normalizedPath == Constants.RootPath || string.IsNullOrEmpty(normalizedPath)
             ? []
             : normalizedPath.Split(Constants.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>Last segment, or an empty string for the root.</summary>
+    /// <param name="normalizedPath">A path already passed through <see cref="Normalize"/>.</param>
+    /// <returns>The last segment, or an empty string for the root.</returns>
     public static string GetName(string normalizedPath)
     {
         if (normalizedPath == Constants.RootPath)
@@ -84,6 +94,8 @@ public static class VirtualPath
     }
 
     /// <summary>Parent path, or <c>null</c> when <paramref name="normalizedPath"/> is the root.</summary>
+    /// <param name="normalizedPath">A path already passed through <see cref="Normalize"/>.</param>
+    /// <returns>The parent, or <see langword="null"/> for the root.</returns>
     public static string? GetParent(string normalizedPath)
     {
         if (normalizedPath == Constants.RootPath)
@@ -96,6 +108,9 @@ public static class VirtualPath
     }
 
     /// <summary>Appends one or more segments to a normalized path.</summary>
+    /// <param name="normalizedPath">Path the segments are appended to. It is normalized again.</param>
+    /// <param name="segments">Segments to append. Each is normalized with the path, so <c>..</c> still cannot escape the root.</param>
+    /// <returns>The combined virtual path.</returns>
     public static string Combine(string normalizedPath, params string[] segments)
     {
         if (segments.Length == 0)
@@ -114,11 +129,17 @@ public static class VirtualPath
     /// underneath it. Compares whole segments, so <c>/ab</c> is not treated as a child of
     /// <c>/a</c>. Case-insensitive to match Windows and macOS filesystem behaviour.
     /// </summary>
+    /// <param name="candidate">Path being tested.</param>
+    /// <param name="ancestor">Path it may equal or sit under.</param>
+    /// <returns><see langword="true"/> when <paramref name="candidate"/> is the ancestor or a descendant.</returns>
     public static bool IsSameOrUnder(string candidate, string ancestor) => ancestor == Constants.RootPath || candidate.Equals(ancestor, StringComparison.OrdinalIgnoreCase) || (candidate.Length > ancestor.Length
             && candidate[ancestor.Length] == Constants.PathSeparator
             && candidate.StartsWith(ancestor, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Strictly below <paramref name="ancestor"/> — excludes the ancestor itself.</summary>
+    /// <param name="candidate">Path being tested.</param>
+    /// <param name="ancestor">Path it must sit strictly under.</param>
+    /// <returns><see langword="true"/> when <paramref name="candidate"/> is below the ancestor.</returns>
     public static bool IsStrictlyUnder(string candidate, string ancestor) =>
         !candidate.Equals(ancestor, StringComparison.OrdinalIgnoreCase)
         && IsSameOrUnder(candidate, ancestor);
@@ -128,6 +149,9 @@ public static class VirtualPath
     /// Returns <c>null</c> when it isn't inside the scope. Used to hide a user's scope prefix
     /// from the paths their browser ever sees.
     /// </summary>
+    /// <param name="candidate">Absolute path within the source.</param>
+    /// <param name="scope">The caller's scope prefix, or <c>/</c> when they are unscoped.</param>
+    /// <returns>The path with the scope removed, or <see langword="null"/> when it is outside the scope.</returns>
     public static string? MakeRelativeTo(string candidate, string scope) => !IsSameOrUnder(candidate, scope)
             ? null
             : scope == Constants.RootPath
@@ -140,6 +164,10 @@ public static class VirtualPath
     /// Expands <c>${username}</c> / <c>${userid}</c> in a rule path or default scope. Tokens are
     /// slug-sanitised so a display name containing a slash can't widen the rule's reach.
     /// </summary>
+    /// <param name="path">Rule path or scope that may contain tokens.</param>
+    /// <param name="userName">Replacement for <c>${username}</c>. Sanitized to one segment.</param>
+    /// <param name="userId">Replacement for <c>${userid}</c>. Sanitized to one segment.</param>
+    /// <returns>The path with both tokens replaced. A path with no token is returned unchanged.</returns>
     public static string ExpandTokens(string path, string? userName, string? userId) => string.IsNullOrEmpty(path) || !path.Contains("${", StringComparison.Ordinal)
             ? path
             : path
@@ -147,6 +175,8 @@ public static class VirtualPath
             .Replace(Constants.PathTokens.UserId, SanitizeSegment(userId), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>True when the path still contains an unexpanded token.</summary>
+    /// <param name="path">Path to inspect. <see langword="null"/> or empty is <see langword="false"/>.</param>
+    /// <returns><see langword="true"/> when the text contains <c>${</c>.</returns>
     public static bool HasTokens(string? path) =>
         !string.IsNullOrEmpty(path) && path.Contains("${", StringComparison.Ordinal);
 
@@ -154,6 +184,8 @@ public static class VirtualPath
     /// Reduces an arbitrary string to something usable as a single path segment: separators and
     /// characters illegal on Windows are replaced with <c>_</c>.
     /// </summary>
+    /// <param name="value">Text to turn into one segment. Blank becomes <c>_</c>.</param>
+    /// <returns>The sanitized segment. A result that is empty after trimming also becomes <c>_</c>.</returns>
     public static string SanitizeSegment(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -180,6 +212,14 @@ public static class VirtualPath
     /// of defence against traversal: a symlink or a normalisation quirk that escapes the root
     /// fails here rather than being served.
     /// </summary>
+    /// <param name="sourceRoot">Physical root of the source.</param>
+    /// <param name="virtualPath">Virtual path to map. It is normalized first.</param>
+    /// <param name="physicalPath">The physical path when the result is inside the root.</param>
+    /// <returns>
+    /// <see langword="false"/> when the root or the combined path cannot be resolved, or when the
+    /// result is outside the root. Linux compares the containment check ordinally; other systems
+    /// ignore case.
+    /// </returns>
     public static bool TryResolve(string sourceRoot, string virtualPath, [NotNullWhen(true)] out string? physicalPath)
     {
         physicalPath = null;
@@ -227,6 +267,11 @@ public static class VirtualPath
     }
 
     /// <summary>Converts a physical path under <paramref name="sourceRoot"/> back to a virtual one.</summary>
+    /// <param name="sourceRoot">Physical root of the source.</param>
+    /// <param name="physicalPath">Physical path under that root.</param>
+    /// <returns>
+    /// The virtual path. A physical path that is not longer than the root becomes <c>/</c>.
+    /// </returns>
     public static string FromPhysical(string sourceRoot, string physicalPath)
     {
         string rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourceRoot));

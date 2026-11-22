@@ -1,11 +1,13 @@
 namespace ArcaFS.Services.UserData;
 
+/// <inheritdoc cref="IFavoriteService" />
 public sealed class FavoriteService(
     ILogger<FavoriteService> logger,
     IUserContextService userContext,
     IPermissionService permissionService,
     IRepository<FavoriteItem> repository) : IFavoriteService
 {
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<FavoriteDto>>> ListAsync(
         CancellationToken cancellationToken = default)
     {
@@ -52,6 +54,7 @@ public sealed class FavoriteService(
         return Result<IReadOnlyList<FavoriteDto>>.Success(visible);
     }
 
+    /// <inheritdoc />
     public async Task<Result<FavoriteDto>> AddAsync(
         int sourceId,
         string path,
@@ -112,6 +115,7 @@ public sealed class FavoriteService(
             created.IsDirectory));
     }
 
+    /// <inheritdoc />
     public async Task<Result> RemoveAsync(int favoriteId, CancellationToken cancellationToken = default)
     {
         string? userId = userContext.GetCurrentUserId();
@@ -142,6 +146,7 @@ public sealed class FavoriteService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result<bool>> ToggleAsync(
         int sourceId,
         string path,

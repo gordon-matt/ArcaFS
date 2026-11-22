@@ -2,6 +2,7 @@ namespace ArcaFS.Services.FileSystem;
 
 public sealed partial class FileSystemService
 {
+    /// <inheritdoc />
     public async Task<Result<FileSystemItemDto>> CreateDirectoryAsync(
         CreateDirectoryRequest request,
         CancellationToken cancellationToken = default)
@@ -57,6 +58,7 @@ public sealed partial class FileSystemService
             ToItem(info, virtualPath, parent.Value.Permissions, videoThumbnails.IsAvailable));
     }
 
+    /// <inheritdoc />
     public async Task<Result<FileSystemItemDto>> RenameAsync(
         RenameRequest request,
         CancellationToken cancellationToken = default)
@@ -145,6 +147,7 @@ public sealed partial class FileSystemService
             ToItem(renamed, newVirtualPath, target.Permissions, videoThumbnails.IsAvailable));
     }
 
+    /// <inheritdoc />
     public async Task<Result<BulkOperationResultDto>> DeleteAsync(
         DeleteRequest request,
         CancellationToken cancellationToken = default)
@@ -224,6 +227,7 @@ public sealed partial class FileSystemService
         return Result<BulkOperationResultDto>.Success(BulkOperationResultDto.From(results));
     }
 
+    /// <inheritdoc />
     public async Task<Result<BulkOperationResultDto>> TransferAsync(
         TransferRequest request,
         CancellationToken cancellationToken = default)

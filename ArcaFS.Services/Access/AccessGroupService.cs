@@ -1,5 +1,6 @@
 namespace ArcaFS.Services.Access;
 
+/// <inheritdoc cref="IAccessGroupService" />
 public sealed class AccessGroupService(
     ILogger<AccessGroupService> logger,
     IUserContextService userContext,
@@ -8,6 +9,7 @@ public sealed class AccessGroupService(
     IRepository<AccessGroupMember> memberRepository,
     IRepository<AccessRule> ruleRepository) : IAccessGroupService
 {
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<AccessGroupDto>>> ListAsync(CancellationToken cancellationToken = default)
     {
         if (!userContext.IsAdministrator())
@@ -45,6 +47,7 @@ public sealed class AccessGroupService(
         return Result<IReadOnlyList<AccessGroupDto>>.Success(dtos);
     }
 
+    /// <inheritdoc />
     public async Task<Result<AccessGroupDto>> SaveAsync(
         SaveAccessGroupRequest request,
         CancellationToken cancellationToken = default)
@@ -122,6 +125,7 @@ public sealed class AccessGroupService(
             : Result<AccessGroupDto>.Success(dto);
     }
 
+    /// <inheritdoc />
     public async Task<Result> DeleteAsync(int groupId, CancellationToken cancellationToken = default)
     {
         if (!userContext.IsAdministrator())
@@ -158,6 +162,7 @@ public sealed class AccessGroupService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result> SyncExternalGroupsAsync(
         string userId,
         IEnumerable<string> groupNames,

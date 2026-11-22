@@ -8,6 +8,11 @@ namespace ArcaFS.Infrastructure;
 /// </summary>
 public static class HangfireRecurringJobs
 {
+    /// <summary>
+    /// Registers the scheduled jobs. The index check runs every five minutes, thumbnail pruning
+    /// at 03:00 UTC, and activity purging at 04:00 UTC. Each job is started with
+    /// <see cref="CancellationToken.None"/>.
+    /// </summary>
     public static void Register()
     {
         // Runs every five minutes but only scans sources whose own interval has elapsed, so a

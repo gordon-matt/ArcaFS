@@ -7,15 +7,33 @@ namespace ArcaFS.Services.FileSystem;
 /// </summary>
 public interface IFileSystemService
 {
+    /// <summary>
+    /// Lists one folder. A child the caller can neither browse nor read is omitted. A name
+    /// filter and a kind filter are applied before paging.
+    /// </summary>
+    /// <param name="request">Source, folder, filters, sort, and page.</param>
     /// <param name="principal">
-    /// Explicit principal for a public share visit, where there is no signed-in caller. Null
-    /// resolves the current user.
+    /// Explicit principal for a public share visit, where there is no signed-in caller.
+    /// <see langword="null"/> resolves the current user.
     /// </param>
+    /// <param name="cancellationToken">Cancels the permission check and the directory walk.</param>
+    /// <returns>
+    /// The page of visible children, or a failure when the folder is missing, is a file, or
+    /// the caller cannot browse it.
+    /// </returns>
     Task<Result<DirectoryListingDto>> ListAsync(
         ListingRequest request,
         AccessPrincipal? principal = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Details of one file or folder. Image files also include pixel size. A directory's
+    /// recursive size is not computed here.
+    /// </summary>
+    /// <param name="sourceId">Source that contains the path.</param>
+    /// <param name="path">Path as the caller sees it.</param>
+    /// <param name="cancellationToken">Cancels the permission check and the image probe.</param>
+    /// <returns>The item, or a failure when it is missing or the caller cannot read it.</returns>
     Task<Result<FileDetailDto>> GetDetailAsync(
         int sourceId,
         string path,
@@ -26,29 +44,66 @@ public interface IFileSystemService
     /// <see cref="GetDetailAsync"/> because walking a large tree is too slow for the info panel's
     /// first paint.
     /// </summary>
+    /// <param name="sourceId">Source that contains the path.</param>
+    /// <param name="path">Directory path as the caller sees it.</param>
+    /// <param name="cancellationToken">Cancels the permission check and the walk.</param>
+    /// <returns>The totals, or a failure when the path is not a browsable directory.</returns>
     Task<Result<DirectorySizeDto>> GetDirectorySizeAsync(
         int sourceId,
         string path,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Creates a folder inside a parent the caller can create in.</summary>
+    /// <param name="request">Source, parent path, and the new folder's name.</param>
+    /// <param name="cancellationToken">Cancels the permission check. The directory create itself is not cancelled.</param>
+    /// <returns>
+    /// The new folder, or a failure when the name is empty, the name is taken, or the caller
+    /// cannot create there.
+    /// </returns>
     Task<Result<FileSystemItemDto>> CreateDirectoryAsync(
         CreateDirectoryRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Renames one file or folder in place. A case-only change is allowed. The source root
+    /// cannot be renamed.
+    /// </summary>
+    /// <param name="request">Source, current path, and the new name.</param>
+    /// <param name="cancellationToken">Cancels the permission check. The rename itself is not cancelled.</param>
+    /// <returns>
+    /// The renamed item, or a failure when it is missing, the new name is empty or taken, or
+    /// the caller cannot rename it.
+    /// </returns>
     Task<Result<FileSystemItemDto>> RenameAsync(
         RenameRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>Moves or copies entries, possibly across sources. Partial success is normal.</summary>
+    /// <param name="request">
+    /// Origins, destination, whether this is a copy, and what to do when a name is already taken.
+    /// </param>
+    /// <param name="cancellationToken">Cancels between items. A copy or move that has started is not cancelled.</param>
+    /// <returns>
+    /// One outcome per path. A folder cannot be moved or copied into itself. An empty selection
+    /// is invalid, and a missing destination fails the whole call.
+    /// </returns>
     Task<Result<BulkOperationResultDto>> TransferAsync(
         TransferRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Deletes each path that the caller can delete. Partial success is normal.</summary>
+    /// <param name="request">Source and the paths to delete. Directories are deleted recursively.</param>
+    /// <param name="cancellationToken">Cancels between items. A delete that has started is not cancelled.</param>
+    /// <returns>One outcome per path. An empty selection is invalid.</returns>
     Task<Result<BulkOperationResultDto>> DeleteAsync(
         DeleteRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>Reads a text file for the built-in editor, refusing anything oversized or binary.</summary>
+    /// <param name="sourceId">Source that contains the path.</param>
+    /// <param name="path">File path as the caller sees it.</param>
+    /// <param name="cancellationToken">Cancels the permission check and the read.</param>
+    /// <returns>The text and its last-write time, or a failure when the file cannot be opened as text.</returns>
     Task<Result<TextFileContentDto>> ReadTextAsync(
         int sourceId,
         string path,
@@ -59,6 +114,9 @@ public interface IFileSystemService
     /// <see cref="SaveTextFileRequest.ExpectedModifiedAt"/> is set, refuses the save if the file
     /// changed after the editor opened it.
     /// </summary>
+    /// <param name="request">Source, path, text, and the optional last-write time the editor saw.</param>
+    /// <param name="cancellationToken">Cancels the permission check and the write.</param>
+    /// <returns>The saved file's last-write time, or a failure when the file changed or the caller cannot write it.</returns>
     Task<Result<TextSaveDto>> SaveTextAsync(
         SaveTextFileRequest request,
         CancellationToken cancellationToken = default);
@@ -67,6 +125,13 @@ public interface IFileSystemService
     /// Opens a file for download. The caller owns the returned stream. Records a Download
     /// activity event.
     /// </summary>
+    /// <param name="sourceId">Source that contains the path.</param>
+    /// <param name="path">File path as the caller sees it.</param>
+    /// <param name="principal">
+    /// Explicit principal for a public share visit. <see langword="null"/> resolves the current user.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the permission check. Reading the stream is the caller's concern.</param>
+    /// <returns>The open stream and file metadata, or a failure when the file is missing or not readable.</returns>
     Task<Result<FileDownloadDto>> OpenReadAsync(
         int sourceId,
         string path,
@@ -77,6 +142,14 @@ public interface IFileSystemService
     /// Streams a set of entries as a zip, written directly to <paramref name="destination"/>
     /// so a multi-gigabyte selection never lands in memory or a temp file.
     /// </summary>
+    /// <param name="sourceId">Source that contains the paths.</param>
+    /// <param name="paths">Files and folders to include. Each must be readable.</param>
+    /// <param name="destination">Stream the zip is written to. Not closed by this method.</param>
+    /// <param name="principal">
+    /// Explicit principal for a public share visit. <see langword="null"/> resolves the current user.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the permission checks and the zip write.</param>
+    /// <returns>Success once the zip has been written, or the first permission or I/O failure.</returns>
     Task<Result> WriteZipAsync(
         int sourceId,
         IReadOnlyList<string> paths,
@@ -89,6 +162,15 @@ public interface IFileSystemService
     /// and moves it into place only once complete, so a failed upload never leaves a
     /// truncated file that looks real.
     /// </summary>
+    /// <param name="request">Destination, file name, body, and the optional chunk position.</param>
+    /// <param name="principal">
+    /// Explicit principal for a public share visit. <see langword="null"/> resolves the current user.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the permission check and the copy. The final rename is not cancelled.</param>
+    /// <returns>
+    /// Whether the file is complete. A name that already exists conflicts unless the request
+    /// overwrites it, and the caller must be able to create in the destination folder.
+    /// </returns>
     Task<Result<UploadResultDto>> UploadAsync(
         UploadRequest request,
         AccessPrincipal? principal = null,

@@ -34,6 +34,7 @@ public enum AccessSubjectType
 
 public enum AccessEffect
 {
+    /// <summary>Adds the rule's permissions.</summary>
     Allow = 0,
 
     /// <summary>Applied after <see cref="Allow"/> at the same specificity, so deny wins on a tie.</summary>

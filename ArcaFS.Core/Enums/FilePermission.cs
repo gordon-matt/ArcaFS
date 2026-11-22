@@ -13,6 +13,7 @@ namespace ArcaFS.Enums;
 [Flags]
 public enum FilePermission
 {
+    /// <summary>No permissions.</summary>
     None = 0,
 
     /// <summary>See the folder and list its children. Without this the path is invisible.</summary>
@@ -36,6 +37,7 @@ public enum FilePermission
     /// <summary>Move out of this path. The destination separately needs <see cref="Create"/>.</summary>
     Move = 1 << 6,
 
+    /// <summary>Remove the file or folder. A folder delete is recursive.</summary>
     Delete = 1 << 7,
 
     /// <summary>Create a public share link for this path.</summary>
@@ -59,9 +61,11 @@ public enum FilePermission
     /// <summary>Everything except permission management.</summary>
     Editor = Contributor | Rename | Move | Delete | Share,
 
+    /// <summary>Editor plus permission management.</summary>
     Full = Editor | ManagePermissions,
 }
 
+/// <summary>Flag tests and display names for <see cref="FilePermission"/>.</summary>
 public static class FilePermissionExtensions
 {
     /// <summary>Permissions that never mutate the filesystem. Used to clamp read-only sources.</summary>
@@ -71,18 +75,29 @@ public static class FilePermissionExtensions
         | FilePermission.Archive
         | FilePermission.Share;
 
+    /// <summary>Whether every flag in <paramref name="required"/> is set. <see cref="FilePermission.None"/> is always present.</summary>
+    /// <param name="value">Mask to test.</param>
+    /// <param name="required">Flags that must all be set.</param>
+    /// <returns><see langword="true"/> when the mask includes <paramref name="required"/>.</returns>
     public static bool Has(this FilePermission value, FilePermission required) =>
         required == FilePermission.None || (value & required) == required;
 
+    /// <summary>Whether the mask and <paramref name="any"/> share at least one flag.</summary>
+    /// <param name="value">Mask to test.</param>
+    /// <param name="any">Flags of which any one is enough.</param>
+    /// <returns><see langword="true"/> when the intersection is not empty.</returns>
     public static bool HasAny(this FilePermission value, FilePermission any) => (value & any) != 0;
 
     /// <summary>
     /// Individual flags set on <paramref name="value"/>, in declaration order. Composite presets
     /// (<see cref="FilePermission.Full"/> etc.) are excluded so the UI can render one chip per flag.
     /// </summary>
+    /// <param name="value">Mask to split. Composite presets are not returned as themselves.</param>
+    /// <returns>The individual flags that are set.</returns>
     public static IEnumerable<FilePermission> ToFlags(this FilePermission value) =>
         AllFlags.Where(flag => (value & flag) == flag);
 
+    /// <summary>The individual flags, in declaration order, excluding the composite presets.</summary>
     public static readonly IReadOnlyList<FilePermission> AllFlags =
     [
         FilePermission.Browse,
@@ -99,6 +114,9 @@ public static class FilePermissionExtensions
         FilePermission.ManagePermissions,
     ];
 
+    /// <summary>A label for one flag or a known preset. An unknown combination uses the enum name.</summary>
+    /// <param name="flag">Flag, preset, or other combination.</param>
+    /// <returns>The label.</returns>
     public static string ToDisplayName(this FilePermission flag) => flag switch
     {
         FilePermission.None => "None",
@@ -126,12 +144,16 @@ public static class FilePermissionExtensions
     /// like "Missing: Create, Modify". <see cref="ToDisplayName"/> only names a mask that
     /// happens to be a single flag or a known preset.
     /// </summary>
+    /// <param name="value">Mask to render. <see cref="FilePermission.None"/> is the word None.</param>
+    /// <returns>The comma-separated labels.</returns>
     public static string ToDisplayList(this FilePermission value) => value == FilePermission.None ? "None" : string.Join(", ", value.ToDisplayNames());
 
     /// <summary>
     /// The display name of each set flag, for rendering a mask as individual chips rather than
     /// one string.
     /// </summary>
+    /// <param name="value">Mask to render.</param>
+    /// <returns>One label per set individual flag.</returns>
     public static IEnumerable<string> ToDisplayNames(this FilePermission value) =>
         value.ToFlags().Select(f => f.ToDisplayName());
 }

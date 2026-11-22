@@ -29,6 +29,7 @@ public sealed class KeycloakUserInfoService(
     private string? cachedToken;
     private DateTimeOffset tokenExpiresAt = DateTimeOffset.MinValue;
 
+    /// <inheritdoc />
     public async Task<IReadOnlyDictionary<string, UserInfo>> GetUserInfoAsync(
         IEnumerable<string> userIds,
         CancellationToken cancellationToken = default)
@@ -45,6 +46,7 @@ public sealed class KeycloakUserInfoService(
             .ToDictionary(u => u.Id, StringComparer.Ordinal);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<UserInfo>> GetAllUsersAsync(CancellationToken cancellationToken = default)
     {
         var (baseUrl, realm) = ResolveRealm();
@@ -107,6 +109,7 @@ public sealed class KeycloakUserInfoService(
 
     private static string Truncate(string value) => value.Length <= 500 ? value : value[..500];
 
+    /// <inheritdoc />
     public async Task<UserInfo?> GetUserAsync(string userId, CancellationToken cancellationToken = default)
     {
         var all = await GetAllUsersAsync(cancellationToken);

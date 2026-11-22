@@ -1,5 +1,6 @@
 namespace ArcaFS.Services.Access;
 
+/// <inheritdoc cref="IAccessRuleService" />
 public sealed class AccessRuleService(
     ILogger<AccessRuleService> logger,
     IUserContextService userContext,
@@ -9,6 +10,7 @@ public sealed class AccessRuleService(
     IRepository<Source> sourceRepository,
     IRepository<AccessGroup> groupRepository) : IAccessRuleService
 {
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<AccessRuleDto>>> ListAsync(
         int sourceId,
         CancellationToken cancellationToken = default)
@@ -41,6 +43,7 @@ public sealed class AccessRuleService(
         return Result<IReadOnlyList<AccessRuleDto>>.Success(dtos);
     }
 
+    /// <inheritdoc />
     public async Task<Result<AccessRuleDto>> CreateAsync(
         CreateAccessRuleRequest request,
         CancellationToken cancellationToken = default)
@@ -85,6 +88,7 @@ public sealed class AccessRuleService(
         return Result<AccessRuleDto>.Success(Map(rule, names));
     }
 
+    /// <inheritdoc />
     public async Task<Result<AccessRuleDto>> UpdateAsync(
         UpdateAccessRuleRequest request,
         CancellationToken cancellationToken = default)
@@ -135,6 +139,7 @@ public sealed class AccessRuleService(
         return Result<AccessRuleDto>.Success(Map(rule, names));
     }
 
+    /// <inheritdoc />
     public async Task<Result> DeleteAsync(int ruleId, CancellationToken cancellationToken = default)
     {
         var rule = await ruleRepository.FindOneAsync(new SearchOptions<AccessRule>
@@ -160,6 +165,7 @@ public sealed class AccessRuleService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result> ApplyTemplateAsync(
         int sourceId,
         string templateKey,
@@ -255,6 +261,7 @@ public sealed class AccessRuleService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public Task<IReadOnlyList<AccessTemplateDto>> GetTemplatesAsync(
         int sourceId,
         CancellationToken cancellationToken = default) =>

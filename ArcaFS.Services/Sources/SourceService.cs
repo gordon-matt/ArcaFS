@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 
 namespace ArcaFS.Services.Sources;
 
+/// <inheritdoc cref="ISourceService" />
 public sealed class SourceService(
     ILogger<SourceService> logger,
     IUserContextService userContext,
@@ -12,6 +13,7 @@ public sealed class SourceService(
     IRepository<IndexedItem> indexRepository,
     IOptions<HostBrowseOptions> browseOptions) : ISourceService
 {
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<SourceDto>>> ListAsync(
         CancellationToken cancellationToken = default)
     {
@@ -36,6 +38,7 @@ public sealed class SourceService(
         return Result<IReadOnlyList<SourceDto>>.Success(dtos);
     }
 
+    /// <inheritdoc />
     public async Task<Result<SourceDto>> GetAsync(int id, CancellationToken cancellationToken = default)
     {
         if (!userContext.IsAdministrator())
@@ -59,6 +62,7 @@ public sealed class SourceService(
         return Result<SourceDto>.Success(ToDto(source, ruleCount));
     }
 
+    /// <inheritdoc />
     public async Task<Result<SourceDto>> CreateAsync(
         CreateSourceRequest request,
         CancellationToken cancellationToken = default)
@@ -94,6 +98,7 @@ public sealed class SourceService(
         return Result<SourceDto>.Success(ToDto(created, 0));
     }
 
+    /// <inheritdoc />
     public async Task<Result<SourceDto>> UpdateAsync(
         UpdateSourceRequest request,
         CancellationToken cancellationToken = default)
@@ -153,6 +158,7 @@ public sealed class SourceService(
         return Result<SourceDto>.Success(ToDto(source, ruleCount));
     }
 
+    /// <inheritdoc />
     public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         if (!userContext.IsAdministrator())
@@ -200,6 +206,7 @@ public sealed class SourceService(
         return Result.Success();
     }
 
+    /// <inheritdoc />
     public async Task<Result<SourcePathProbeDto>> ProbePathAsync(
         string path,
         CancellationToken cancellationToken = default)
@@ -272,6 +279,7 @@ public sealed class SourceService(
             normalized, true, true, canRead, canWrite, childCount, message));
     }
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<SourceIndexStatusDto>>> GetIndexStatusAsync(
         CancellationToken cancellationToken = default)
     {

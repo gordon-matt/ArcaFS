@@ -17,6 +17,7 @@ public sealed class NoneUserInfoService(IUserContextService userContext) : IUser
         }
     }
 
+    /// <inheritdoc />
     public Task<IReadOnlyDictionary<string, UserInfo>> GetUserInfoAsync(
         IEnumerable<string> userIds,
         CancellationToken cancellationToken = default)
@@ -30,9 +31,11 @@ public sealed class NoneUserInfoService(IUserContextService userContext) : IUser
         return Task.FromResult(result);
     }
 
+    /// <inheritdoc />
     public Task<IReadOnlyList<UserInfo>> GetAllUsersAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<UserInfo>>([DefaultUser]);
 
+    /// <inheritdoc />
     public Task<UserInfo?> GetUserAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = DefaultUser;

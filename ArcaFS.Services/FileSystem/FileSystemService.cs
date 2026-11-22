@@ -23,6 +23,7 @@ public sealed partial class FileSystemService(
     /// </summary>
     private const long MaxEditableFileBytes = 5 * 1024 * 1024;
 
+    /// <inheritdoc />
     public async Task<Result<DirectoryListingDto>> ListAsync(
         ListingRequest request,
         AccessPrincipal? explicitPrincipal = null,
@@ -142,6 +143,7 @@ public sealed partial class FileSystemService(
             target.Source.IsReadOnly));
     }
 
+    /// <inheritdoc />
     public async Task<Result<FileDetailDto>> GetDetailAsync(
         int sourceId,
         string path,
@@ -192,6 +194,7 @@ public sealed partial class FileSystemService(
             height));
     }
 
+    /// <inheritdoc />
     public async Task<Result<DirectorySizeDto>> GetDirectorySizeAsync(
         int sourceId,
         string path,

@@ -1,5 +1,6 @@
 namespace ArcaFS.Services.Activity;
 
+/// <inheritdoc cref="IActivityService" />
 public sealed class ActivityService(
     ILogger<ActivityService> logger,
     IUserContextService userContext,
@@ -8,6 +9,7 @@ public sealed class ActivityService(
     IRepository<Source> sourceRepository,
     IHttpContextAccessor httpContextAccessor) : IActivityService
 {
+    /// <inheritdoc />
     public async Task RecordAsync(
         ActivityKind kind,
         int? sourceId,
@@ -45,6 +47,7 @@ public sealed class ActivityService(
         }
     }
 
+    /// <inheritdoc />
     public async Task<PagedList<ActivityEventDto>> QueryAsync(
         ActivityQueryRequest request,
         CancellationToken cancellationToken = default)
@@ -100,6 +103,7 @@ public sealed class ActivityService(
         return new PagedList<ActivityEventDto>(items, total, pageNumber, pageSize);
     }
 
+    /// <inheritdoc />
     public async Task<int> PurgeOlderThanAsync(int retentionDays, CancellationToken cancellationToken = default)
     {
         if (retentionDays <= 0)

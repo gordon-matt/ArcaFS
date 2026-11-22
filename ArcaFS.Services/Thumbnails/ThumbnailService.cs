@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace ArcaFS.Services.Thumbnails;
 
+/// <inheritdoc cref="IThumbnailService" />
 public sealed class ThumbnailService(
     ILogger<ThumbnailService> logger,
     IPermissionService permissionService,
@@ -32,6 +33,7 @@ public sealed class ThumbnailService(
     /// </summary>
     private static readonly SemaphoreSlim GenerationLock = new(Environment.ProcessorCount);
 
+    /// <inheritdoc />
     public async Task<Result<ThumbnailDto>> GetAsync(
         int sourceId,
         string path,
@@ -115,6 +117,7 @@ public sealed class ThumbnailService(
         }
     }
 
+    /// <inheritdoc />
     public Task<int> PruneAsync(CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(settings.CacheDirectory))

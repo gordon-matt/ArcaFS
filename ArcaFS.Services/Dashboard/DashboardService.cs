@@ -1,5 +1,6 @@
 namespace ArcaFS.Services.Dashboard;
 
+/// <inheritdoc cref="IDashboardService" />
 public sealed class DashboardService(
     IUserContextService userContext,
     IPermissionService permissionService,
@@ -8,6 +9,7 @@ public sealed class DashboardService(
     IRepository<Share> shareRepository,
     IRepository<AccessRule> ruleRepository) : IDashboardService
 {
+    /// <inheritdoc />
     public async Task<Result<DashboardStatsDto>> GetStatsAsync(
         CancellationToken cancellationToken = default)
     {

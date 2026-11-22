@@ -32,11 +32,19 @@ public enum FileOpenTarget
     Page = 1,
 }
 
+/// <summary>Column a folder listing can be sorted by.</summary>
 public enum ListingSortField
 {
+    /// <summary>File or folder name.</summary>
     Name = 0,
+
+    /// <summary>Size in bytes.</summary>
     Size = 1,
+
+    /// <summary>Last modified time.</summary>
     Modified = 2,
+
+    /// <summary><see cref="FileKind"/>.</summary>
     Kind = 3,
 }
 
@@ -118,6 +126,8 @@ public enum ActivityKind
 public static class ActivityKindExtensions
 {
     /// <summary>Human-readable label for the activity log's Action column.</summary>
+    /// <param name="kind">Event kind.</param>
+    /// <returns>The label. Kinds without a special name use the enum name.</returns>
     public static string GetDisplayName(this ActivityKind kind) => kind switch
     {
         ActivityKind.SignIn => "Sign in",
@@ -130,6 +140,8 @@ public static class ActivityKindExtensions
     };
 
     /// <summary>Bootstrap contextual colour used for the badge in the activity log.</summary>
+    /// <param name="kind">Event kind.</param>
+    /// <returns>A contextual colour name, without the <c>text-bg-</c> prefix.</returns>
     public static string GetBadgeClass(this ActivityKind kind) => kind switch
     {
         ActivityKind.Delete => "danger",
